@@ -301,7 +301,7 @@ MMO.controller('MapController', function($rootScope, $scope, $sce, $rooms, $play
       case 191: return ((!shiftKey) ? '/' : '?');
       case 219: return ((!shiftKey) ? '[' : '{');
       case 221: return ((!shiftKey) ? ']' : '}');
-      case 220: return ((!shiftKey) ? '\\' : '|');
+      case 220: case 222: return ((!shiftKey) ? '\\' : '|');
       case 88: return ((!shiftKey) ? 'x' : 'X');
       default:
         console.log(shiftKey, keyCode);
