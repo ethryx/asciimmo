@@ -35,11 +35,11 @@ MMO.controller('MapController', function($rootScope, $scope, $sce, $rooms, $play
     $player.setCanDraw(loginData.canEdit);
     $player.setStyle(loginData.style);
 
-    $rootScope.addLine('You have logged in as "' + $scope.username + '"!');
+    $rootScope.addLine('You have logged in as \'' + $scope.username + '\'!');
   });
 
   socket.on('mapRender', function(mapData) {
-    console.log('You are now on the map:', mapData.name);
+    $rootScope.addLine('You have entered \'' + mapData.name + '\'!');
     $scope.mapRenderAvailable = true;
     $rooms.load(mapData.rooms);
     $player.setxy(mapData.locationX, mapData.locationY);
@@ -101,11 +101,16 @@ MMO.controller('MapController', function($rootScope, $scope, $sce, $rooms, $play
   socket.on('mapWall', function(wallData) {
     var room = $rooms.x(wallData.x).y(wallData.y).get();
 
-    if(room.wall) {
-      room.wall = false;
-    } else {
-      room.wall = true;
-    }
+    room.wall = wallData.wall;
+  });
+
+  socket.on('mapColor', function(colorData) {
+    var room = $rooms.x(colorData.x).y(colorData.y).get();
+
+    room.color = colorData.color;
+
+    $scope.render();
+    $scope.$digest();
   });
 
   socket.on('mapSay', function(sayData) {
@@ -208,7 +213,7 @@ MMO.controller('MapController', function($rootScope, $scope, $sce, $rooms, $play
         if($rootScope.inputIsFocused) {
           return;
         }
-        $scope.draw(evt.shiftKey, evt.keyCode);
+        $scope.draw(evt.shiftKey, evt.ctrlKey, evt.keyCode);
         return;
     }
 
@@ -234,7 +239,7 @@ MMO.controller('MapController', function($rootScope, $scope, $sce, $rooms, $play
     $scope.$digest();
   });
 
-  $scope.draw = function(shiftKey, keyCode) {
+  $scope.draw = function(shiftKey, ctrlKey, keyCode) {
     if(!$player.canDraw()) {
       return;
     }
@@ -271,6 +276,34 @@ MMO.controller('MapController', function($rootScope, $scope, $sce, $rooms, $play
 
         console.log('Set current location wall to', room.wall);
       }
+      return;
+    }
+
+    // Special key: ctrl + [0-9] (set color)
+    if(ctrlKey && keyCode >= 48 && keyCode <= 57) {
+      var room = $rooms.check($player.x(), $player.y());
+      if(room) {
+        if(keyCode === 48) {
+          room.color = '';
+        } else {
+          room.color = $scope.drawTable(false, keyCode);
+        }
+
+        socket.emit('mapColor', {
+          x: $player.x(),
+          y: $player.y(),
+          color: room.color
+        });
+
+        if(room.color) {
+          $rootScope.addLine('Room has been set to <span class="colors color-' + room.color + '">THIS COLOR</span>.');
+        } else {
+          $rootScope.addLine('Room color has been removed.');
+        }
+      } else {
+        $rootScope.addLine('Cannot set color here. There is no room here.');
+      }
+
       return;
     }
 
@@ -333,6 +366,7 @@ MMO.controller('MapController', function($rootScope, $scope, $sce, $rooms, $play
         console.log(':: Wall', $rooms.x($player.x()).y($player.y()).get().wall);
         console.log(':: Animation', $rooms.x($player.x()).y($player.y()).get().animation);
         console.log(':: Link', $rooms.x($player.x()).y($player.y()).get().link);
+        console.log(':: Color', $rooms.x($player.x()).y($player.y()).get().color);
       }
 
       $scope.render();
@@ -368,16 +402,25 @@ MMO.controller('MapController', function($rootScope, $scope, $sce, $rooms, $play
           _html += '<span class="map-you" data-id="' + playerHere.id + '" style="' + playerHere.style + '">' + playerHere.username.substr(0,1).toUpperCase() + '</span>';
         } else if($rooms.check(x, y)) {
           if($rooms.x(x).y(y).get().animation) {
-            _html += "<span data-animation='" + $rooms.x(x).y(y).get().animation.split(' ').splice(1).join(' ') + "' data-animationindex='1' data-x='" + x + "' data-y='" + y + "'>" + $rooms.x(x).y(y).get().animation.split(' ').splice(1).join(' ').substr(0, 1).replace('B', '') + "</span>";
+            _html += "<span class='colors color-" + (($rooms.x(x).y(y).get().animation.split(' ')[2]) ? $rooms.x(x).y(y).get().animation.split(' ')[2].substr(0, 1) : '0') + "' data-animation='" + $rooms.x(x).y(y).get().animation.split(' ')[1] + "' data-animationindex='1' data-animationcolors='" + ($rooms.x(x).y(y).get().animation.split(' ')[2] || '') + "' data-x='" + x + "' data-y='" + y + "'>" + $rooms.x(x).y(y).get().animation.split(' ')[1].substr(0, 1).replace('B', '') + "</span>";
             var animationTimer = (function(x, y){
               return function() {
                 var animationSequence = $('[data-x="'+x+'"][data-y="'+y+'"]').data('animation');
+                var animationColors = $('[data-x="'+x+'"][data-y="'+y+'"]').data('animationcolors').toString();
                 var animationIndex = parseInt($('[data-x="'+x+'"][data-y="'+y+'"]').data('animationindex'));
                 var nextIndex = 0;
                 if(animationIndex < animationSequence.length - 1) {
                   nextIndex = animationIndex + 1;
                 }
+
                 $('[data-x="'+x+'"][data-y="'+y+'"]').html(animationSequence.substr(animationIndex, 1).replace('B', ' '));
+
+                for(var i = 0; i <= 9; i++) {
+                  $('[data-x="'+x+'"][data-y="'+y+'"]').removeClass('color-' + i);
+                }
+
+                $('[data-x="'+x+'"][data-y="'+y+'"]').addClass('color-' + ((animationColors) ? animationColors.substr(animationIndex, 1) : '0' ) );
+
                 $('[data-x="'+x+'"][data-y="'+y+'"]').data('animationindex', nextIndex);
               };
             })(x, y);
@@ -387,9 +430,13 @@ MMO.controller('MapController', function($rootScope, $scope, $sce, $rooms, $play
               var _style = '';
               if($rooms.x(x).y(y).get().wall) { _style += 'color:#f00'; }
               if($rooms.x(x).y(y).get().link) { _style += 'background-color:#000;color:#fff'; }
-              _html += '<span style="' + _style + '">' + ($rooms.x(x).y(y).get().symbol || ' ') + '</span>';
+              _html += '<span style="' + _style + '" class="colors color-' + ($rooms.x(x).y(y).get().color || '0') + '">' + ($rooms.x(x).y(y).get().symbol || ' ') + '</span>';
             } else {
-              _html += $rooms.x(x).y(y).get().symbol || ' ';
+              if($rooms.x(x).y(y).get().color) {
+                _html += '<span class="colors color-' + $rooms.x(x).y(y).get().color + '">' + ($rooms.x(x).y(y).get().symbol || ' ') + '</span>';
+              } else {
+                _html += $rooms.x(x).y(y).get().symbol || ' ';
+              }
             }
           }
         } else {

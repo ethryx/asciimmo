@@ -100,6 +100,15 @@ io.on('connection', function(socket) {
       Game.mapUpdateWall(playerObj, wallData);
     });
 
+    socket.on('mapColor', function(colorData) {
+      var playerObj = Game.getPlayerBySocketId(socket.id);
+
+      // TODO: Check perms
+      Game.getMap(playerObj.location.map).color(colorData);
+
+      Game.mapUpdateColor(playerObj, colorData);
+    });
+
     socket.on('mapDelete', function(drawData) {
       var playerObj = Game.getPlayerBySocketId(socket.id);
 
@@ -131,7 +140,7 @@ io.on('connection', function(socket) {
 
       switch(command) {
         case 'animate':
-          if(!playerObj.canEdit || args.length === 0){ return; }
+          if(!playerObj.canEdit || args.length < 2){ return; }
           var animationData = { x: playerObj.location.x, y: playerObj.location.y, animation: args.join(' ') };
           Game.getMap(playerObj.location.map).setAnimation(animationData);
           Game.doOnMapPlayers(playerObj, true, function(_player) {

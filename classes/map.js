@@ -39,6 +39,13 @@ Map.prototype.wall = function(wallData) {
   }
 };
 
+Map.prototype.color = function(colorData) {
+  var existingRoom = _.findWhere(this.rooms, { x: colorData.x, y: colorData.y });
+  if(existingRoom) {
+    existingRoom.color = colorData.color;
+  }
+};
+
 Map.prototype.setAnimation = function(animationData) {
   var existingRoom = _.findWhere(this.rooms, { x: animationData.x, y: animationData.y });
   if(existingRoom) {

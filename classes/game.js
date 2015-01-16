@@ -208,4 +208,14 @@ Game.prototype.mapUpdateWall = function(player, wallData) {
   });
 };
 
+Game.prototype.mapUpdateColor = function(player, colorData) {
+  this.doOnMapPlayers(player, false, function(_player) {
+    _player.socket.emit('mapColor', {
+      x: colorData.x,
+      y: colorData.y,
+      color: colorData.color
+    });
+  });
+};
+
 module.exports = Game;
