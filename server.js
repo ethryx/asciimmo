@@ -80,6 +80,8 @@ io.on('connection', function(socket) {
     });
 
     socket.on('mapDraw', function(drawData) {
+      if(!playerObj.canEdit){ return; }
+
       var playerObj = Game.getPlayerBySocketId(socket.id);
 
       // TODO: Check perms
@@ -92,6 +94,8 @@ io.on('connection', function(socket) {
     });
 
     socket.on('mapWall', function(wallData) {
+      if(!playerObj.canEdit){ return; }
+
       var playerObj = Game.getPlayerBySocketId(socket.id);
 
       // TODO: Check perms
@@ -101,6 +105,8 @@ io.on('connection', function(socket) {
     });
 
     socket.on('mapColor', function(colorData) {
+      if(!playerObj.canEdit){ return; }
+
       var playerObj = Game.getPlayerBySocketId(socket.id);
 
       // TODO: Check perms
@@ -110,6 +116,8 @@ io.on('connection', function(socket) {
     });
 
     socket.on('mapDelete', function(drawData) {
+      if(!playerObj.canEdit){ return; }
+
       var playerObj = Game.getPlayerBySocketId(socket.id);
 
       // TODO: Check perms
@@ -123,14 +131,6 @@ io.on('connection', function(socket) {
     socket.on('mapSay', function(sayData) {
       var playerObj = Game.getPlayerBySocketId(socket.id);
       Game.sayToSurroundingPlayers(playerObj, sayData.text);
-    });
-
-    socket.on('mapAnimation', function(animationData) {
-      var playerObj = Game.getPlayerBySocketId(socket.id);
-      Game.getMap(playerObj.location.map).setAnimation(animationData);
-      Game.doOnMapPlayers(playerObj, false, function(_player) {
-        _player.socket.emit('mapAnimation', animationData);
-      });
     });
 
     socket.on('runCommand', function(commandData) {
@@ -168,7 +168,7 @@ io.on('connection', function(socket) {
               flags: newFlags
             });
           });
-          socket.emit('text', 'Your flags have been applied to the map.');
+          socket.emit('text', 'Your flag has been applied to the map.');
           break;
       }
     });
