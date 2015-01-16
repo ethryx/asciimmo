@@ -21,6 +21,7 @@ MMO.controller('BodyController', function($rootScope) {
 MMO.controller('MapController', function($rootScope, $scope, $sce, $rooms, $player) {
 
   $scope.mapRenderAvailable = false;
+  $scope.showSpecial = false;
 
   $scope.viewportX = Math.floor($(window).width() / 30); // Monospace font size
   $scope.viewportY = Math.floor($(window).height() / 65); // Monspace font size
@@ -167,10 +168,23 @@ MMO.controller('MapController', function($rootScope, $scope, $sce, $rooms, $play
     if(evt.keyCode === 8) {
       evt.preventDefault();
     }
+
+    if(evt.keyCode === 16 && $player.canDraw()) {
+      $scope.showSpecial = true;
+      $scope.render();
+      $scope.$digest();
+    }
   });
 
   $(document).on('keyup', function(evt) {
     if(!$scope.mapRenderAvailable) {
+      return;
+    }
+
+    if(evt.keyCode === 16 && $scope.showSpecial) {
+      $scope.showSpecial = false;
+      $scope.render();
+      $scope.$digest();
       return;
     }
 
@@ -301,7 +315,7 @@ MMO.controller('MapController', function($rootScope, $scope, $sce, $rooms, $play
       case 191: return ((!shiftKey) ? '/' : '?');
       case 219: return ((!shiftKey) ? '[' : '{');
       case 221: return ((!shiftKey) ? ']' : '}');
-      case 220: case 222: return ((!shiftKey) ? '\\' : '|');
+      case 220: return ((!shiftKey) ? '\\' : '|');
       case 88: return ((!shiftKey) ? 'x' : 'X');
       default:
         console.log(shiftKey, keyCode);
@@ -369,7 +383,14 @@ MMO.controller('MapController', function($rootScope, $scope, $sce, $rooms, $play
             })(x, y);
             $scope.animationTimers.push(setInterval(animationTimer, parseInt($rooms.x(x).y(y).get().animation.split(' ')[0])));
           } else {
-            _html += $rooms.x(x).y(y).get().symbol || ' ';
+            if($scope.showSpecial) {
+              var _style = '';
+              if($rooms.x(x).y(y).get().wall) { _style += 'color:#f00'; }
+              if($rooms.x(x).y(y).get().link) { _style += 'background-color:#000;color:#fff'; }
+              _html += '<span style="' + _style + '">' + ($rooms.x(x).y(y).get().symbol || ' ') + '</span>';
+            } else {
+              _html += $rooms.x(x).y(y).get().symbol || ' ';
+            }
           }
         } else {
           _html += ' ';
