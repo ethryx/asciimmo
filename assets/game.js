@@ -1,0 +1,536 @@
+var socket = io();
+var MMO = angular.module('asciimmo', ['ng']);
+
+$(document).ready(function() {
+  $('#input-controller input').focus();
+});
+
+MMO.controller('BodyController', function($rootScope) {
+
+  $rootScope.logHtml = 'Welcome to AsciiMMO.com!<br>';
+
+  $rootScope.addLine = function(line) {
+    $rootScope.logHtml += line + '<br>';
+    $rootScope.$digest();
+    $('#log-controller').scrollTop($('#log-controller').prop("scrollHeight"));
+  };
+
+  console.log('Welcome to AsciiMMO!');
+});
+
+MMO.controller('MapController', function($rootScope, $scope, $sce, $rooms, $player) {
+
+  $scope.mapRenderAvailable = false;
+
+  $scope.viewportX = Math.floor($(window).width() / 30); // Monospace font size
+  $scope.viewportY = Math.floor($(window).height() / 65); // Monspace font size
+
+  $scope.players = [];
+
+  socket.on('loggedIn', function(loginData) {
+    $scope.id = loginData.id;
+    $scope.username = loginData.username;
+
+    $player.setCanDraw(loginData.canEdit);
+    $player.setStyle(loginData.style);
+
+    $rootScope.addLine('You have logged in as "' + $scope.username + '"!');
+  });
+
+  socket.on('mapRender', function(mapData) {
+    console.log('You are now on the map:', mapData.name);
+    $scope.mapRenderAvailable = true;
+    $rooms.load(mapData.rooms);
+    $player.setxy(mapData.locationX, mapData.locationY);
+    $player.setMap(mapData.name);
+    $scope.render();
+    $scope.$digest();
+  });
+
+  socket.on('playerUpdate', function(updateData) {
+    var playerObj = _.findWhere($scope.players, { username: updateData.username });
+    if(playerObj) {
+      playerObj.x = updateData.x;
+      playerObj.y = updateData.y;
+      playerObj.map = updateData.map;
+      playerObj.id = updateData.id;
+      playerObj.style = updateData.style;
+    } else {
+      $scope.players.push(updateData);
+    }
+
+    $scope.render();
+    $scope.$digest();
+  });
+
+  socket.on('playerRemove', function(removeData) {
+    var playerObj = _.findWhere($scope.players, { username: removeData.username });
+    var render = false;
+
+    if(playerObj) {
+      if( Math.abs(playerObj.x - $player.x()) < 100 && Math.abs(playerObj.y - $player.y()) < 100) {
+        render = true;
+      }
+
+      $scope.players.splice($scope.players.indexOf(playerObj), 1);
+    }
+
+    if(render) {
+      $scope.render();
+      $scope.$digest();
+    }
+  });
+
+  socket.on('mapUpdate', function(updateData) {
+    $rooms.x(updateData.x).y(updateData.y).get().symbol = updateData.symbol;
+
+    $scope.render();
+    $scope.$digest();
+  });
+
+  socket.on('mapDelete', function(updateData) {
+    if($rooms.check(updateData.x, updateData.y)) {
+      $rooms.x(updateData.x).y(updateData.y).destroy();
+    }
+
+    $scope.render();
+    $scope.$digest();
+  });
+
+  socket.on('mapWall', function(wallData) {
+    var room = $rooms.x(wallData.x).y(wallData.y).get();
+
+    if(room.wall) {
+      room.wall = false;
+    } else {
+      room.wall = true;
+    }
+  });
+
+  socket.on('mapSay', function(sayData) {
+    console.log(sayData);
+    $('[data-id="' + sayData.id + '"]').qtip({
+      style: 'qtip-tipsy',
+      position: {
+        my: 'bottom left',
+        at: 'top right'
+      },
+      content: {
+        text: sayData.username + ': ' + sayData.text
+      },
+      show: {
+        when:false,
+        event:false,
+        ready:true
+      },
+      hide: {
+        inactive: 2000
+      }
+    });
+
+    $rootScope.addLine("<span style='" + sayData.style + "'>" + sayData.username.substr(0, 1).toUpperCase() + "</span>&nbsp;" + sayData.username + ": " + sayData.text);
+  });
+
+  socket.on('text', function(text) {
+    $rootScope.addLine(text);
+  });
+
+  socket.on('mapAnimation', function(animationData) {
+    $rooms.x(animationData.x).y(animationData.y).get().animation = animationData.animation;
+
+    $scope.render();
+    $scope.$digest();
+  });
+
+  socket.on('mapLink', function(linkData) {
+    $rooms.x(linkData.x).y(linkData.y).get().link = linkData.link;
+
+    $scope.render();
+    $scope.$digest();
+  });
+
+  $(window).resize(function() {
+    $scope.viewportX = Math.floor($(window).width() / 30);
+    $scope.viewportY = Math.floor($(window).height() / 65);
+    $scope.$digest();
+  });
+
+  $(document).on('click', '.map-you', function() {
+    console.log('Clicked a person.');
+  });
+
+  $(document).on('keydown', function(evt) {
+    if($rootScope.inputIsFocused) {
+      return;
+    }
+
+    if(evt.keyCode === 8) {
+      evt.preventDefault();
+    }
+  });
+
+  $(document).on('keyup', function(evt) {
+    if(!$scope.mapRenderAvailable) {
+      return;
+    }
+
+    var x = $player.x();
+    var y = $player.y();
+
+    switch(evt.keyCode) {
+      case 39: // down
+        x++;
+        break;
+      case 38: // up
+        y--;
+        break;
+      case 37: // left
+        x--;
+        break;
+      case 40: // right
+        y++;
+        break;
+      default:
+        if($rootScope.inputIsFocused) {
+          return;
+        }
+        $scope.draw(evt.shiftKey, evt.keyCode);
+        return;
+    }
+
+    // Wall?
+    if($rooms.check(x, y) && $rooms.x(x).y(y).get().wall === true) {
+      if($player.canDraw() && evt.shiftKey) {
+        // Allow passing
+      } else {
+        return;
+      }
+    }
+
+    // Update loc
+    $player.setxy(x, y);
+
+    socket.emit('location', {
+      x: $player.x(),
+      y: $player.y(),
+      shiftKey: evt.shiftKey
+    });
+
+    $scope.render();
+    $scope.$digest();
+  });
+
+  $scope.draw = function(shiftKey, keyCode) {
+    if(!$player.canDraw()) {
+      return;
+    }
+
+    // Special key: backspace (delete a room)
+    if(keyCode === 8) {
+      if($rooms.check($player.x() - 1, $player.y())) {
+        $rooms.x($player.x() - 1).y($player.y()).destroy();
+      }
+      socket.emit('mapDelete', {
+        x: $player.x() - 1,
+        y: $player.y()
+      });
+      $player.setxy($player.x() - 1, $player.y());
+      $scope.$digest();
+      return;
+    }
+
+    // Special key: w (flag as a wall)
+    if(keyCode === 87) {
+      var room = $rooms.check($player.x(), $player.y());
+      if(room) {
+        if(room.wall === true) {
+          room.wall = false;
+        } else {
+          room.wall = true;
+        }
+
+        socket.emit('mapWall', {
+          x: $player.x(),
+          y: $player.y(),
+          wall: room.wall
+        });
+
+        console.log('Set current location wall to', room.wall);
+      }
+      return;
+    }
+
+    // Special key: enter (toggle input)
+    if(keyCode === 13) {
+      $('#input-controller input').attr('disabled', false);
+      $('#input-controller input').focus();
+      return;
+    }
+
+    var drawSymbol = $scope.drawTable(shiftKey, keyCode);
+
+    if(drawSymbol !== null) {
+      $rooms.x($player.x()).y($player.y()).get().symbol = drawSymbol;
+      socket.emit('mapDraw', {
+        x: $player.x(),
+        y: $player.y(),
+        symbol: drawSymbol
+      });
+      $player.setxy($player.x() + 1, $player.y());
+      $scope.$digest();
+    }
+  };
+
+  $scope.drawTable = function(shiftKey, keyCode) {
+    switch(keyCode) {
+      case 192: return ((!shiftKey) ? '`' : '~');
+      case 49: return ((!shiftKey) ? '1' : '!');
+      case 50: return ((!shiftKey) ? '2' : '@');
+      case 51: return ((!shiftKey) ? '3' : '#');
+      case 52: return ((!shiftKey) ? '4' : '$');
+      case 53: return ((!shiftKey) ? '5' : '%');
+      case 54: return ((!shiftKey) ? '6' : '^');
+      case 55: return ((!shiftKey) ? '7' : '&');
+      case 56: return ((!shiftKey) ? '8' : '*');
+      case 57: return ((!shiftKey) ? '9' : '(');
+      case 48: return ((!shiftKey) ? '0' : ')');
+      case 189: return ((!shiftKey) ? '-' : '_');
+      case 187: return ((!shiftKey) ? '=' : '+');
+      case 190: return ((!shiftKey) ? '.' : '>');
+      case 188: return ((!shiftKey) ? ',' : '<');
+      case 191: return ((!shiftKey) ? '/' : '?');
+      case 219: return ((!shiftKey) ? '[' : '{');
+      case 221: return ((!shiftKey) ? ']' : '}');
+      case 220: return ((!shiftKey) ? '\\' : '|');
+      case 88: return ((!shiftKey) ? 'x' : 'X');
+      default:
+        console.log(shiftKey, keyCode);
+        return null;
+    }
+  };
+
+  $scope.$watch(function() {
+    return $player.x().toString() + ',' + $player.y().toString();
+  }, function() {
+    if($scope.mapRenderAvailable) {
+      console.log('#######')
+      console.log('- Location:', $player.x(), $player.y());
+      if($rooms.check($player.x(), $player.y())) {
+        console.log(':: Wall', $rooms.x($player.x()).y($player.y()).get().wall);
+        console.log(':: Animation', $rooms.x($player.x()).y($player.y()).get().animation);
+        console.log(':: Link', $rooms.x($player.x()).y($player.y()).get().link);
+      }
+
+      $scope.render();
+    }
+  });
+
+  $scope.$watchGroup(['viewportX', 'viewportY'], function() {
+    if($scope.mapRenderAvailable) {
+      console.log('Location:', $player.x(), $player.y());
+      console.log((($rooms.check($player.x(), $player.y())) ? 'Wall: ' + $rooms.x($player.x()).y($player.y()).get().wall : 'Wall: false'));
+      console.log((($rooms.check($player.x(), $player.y())) ? 'Animation: ' + $rooms.x($player.x()).y($player.y()).get().animation : 'Animation:'));
+
+      $scope.render();
+    }
+  });
+
+  $scope.render = function() {
+    // Clear animation timers
+    if($scope.animationTimers) {
+      $scope.animationTimers.forEach(clearInterval);
+    }
+
+    $scope.animationTimers = [];
+
+    // Render!
+    var _html = '';
+    for(var y = $player.y() - $scope.viewportY; y < ($player.y() + $scope.viewportY); y++) {
+      for(var x = $player.x() - $scope.viewportX; x < ($player.x() + $scope.viewportX); x++) {
+        var playerHere = _.findWhere($scope.players, { x: x, y: y, map: $player.map() });
+        if(x === $player.x() && y === $player.y()) {
+          _html += '<span class="map-you" data-id="' + $scope.id + '" style="' + $player.getStyle() + '">' + $scope.username.substr(0,1).toUpperCase() + '</span>';
+        } else if(playerHere) {
+          _html += '<span class="map-you" data-id="' + playerHere.id + '" style="' + playerHere.style + '">' + playerHere.username.substr(0,1).toUpperCase() + '</span>';
+        } else if($rooms.check(x, y)) {
+          if($rooms.x(x).y(y).get().animation) {
+            _html += "<span data-animation='" + $rooms.x(x).y(y).get().animation.split(' ').splice(1).join(' ') + "' data-animationindex='1' data-x='" + x + "' data-y='" + y + "'>" + $rooms.x(x).y(y).get().animation.split(' ').splice(1).join(' ').substr(0, 1).replace('B', '') + "</span>";
+            var animationTimer = (function(x, y){
+              return function() {
+                var animationSequence = $('[data-x="'+x+'"][data-y="'+y+'"]').data('animation');
+                var animationIndex = parseInt($('[data-x="'+x+'"][data-y="'+y+'"]').data('animationindex'));
+                var nextIndex = 0;
+                if(animationIndex < animationSequence.length - 1) {
+                  nextIndex = animationIndex + 1;
+                }
+                $('[data-x="'+x+'"][data-y="'+y+'"]').html(animationSequence.substr(animationIndex, 1).replace('B', ' '));
+                $('[data-x="'+x+'"][data-y="'+y+'"]').data('animationindex', nextIndex);
+              };
+            })(x, y);
+            $scope.animationTimers.push(setInterval(animationTimer, parseInt($rooms.x(x).y(y).get().animation.split(' ')[0])));
+          } else {
+            _html += $rooms.x(x).y(y).get().symbol || ' ';
+          }
+        } else {
+          _html += ' ';
+        }
+      }
+      _html += '<br>';
+    }
+
+    $scope.viewport = $sce.trustAsHtml( _html );
+  };
+
+});
+
+MMO.controller('LogController', function($rootScope, $scope, $sce) {
+  $rootScope.$watch('logHtml', function() {
+    $scope.html = $sce.trustAsHtml($rootScope.logHtml);
+  });
+});
+
+MMO.controller('InputController', function($rootScope, $scope, $rooms, $player) {
+  $scope.setInputFocus = function(focused) {
+    $rootScope.inputIsFocused = focused;
+  };
+
+  $scope.onKeyUp = function(evt) {
+    if(evt.keyCode === 13) {
+      if(!$scope.inputText) {
+        return;
+      }
+
+      if($scope.inputText.substr(0, 7) === '/login ') {
+        socket.emit('login', {
+          username: $scope.inputText.substr(7)
+        });
+      } else {
+        if($scope.inputText.substr(0, 1) === '/') {
+          socket.emit('runCommand', {
+            cmd: $scope.inputText.substr(1)
+          });
+        } else {
+          socket.emit('mapSay', {
+            text: $scope.inputText
+          });
+        }
+      }
+
+      $scope.inputText = '';
+      $(evt.target).blur();
+      evt.preventDefault();
+    }
+  };
+
+  $scope.onClick = function() {
+    $('#input-controller input').attr('disabled', false);
+    $('#input-controller input').focus();
+  };
+});
+
+MMO.factory('$rooms', function() {
+  var rooms = [];
+  var lastx;
+  var lasty;
+
+  return {
+    load: function(_rooms) {
+      delete rooms;
+      rooms = [];
+
+      _rooms.forEach(function(_room) {
+        if(!rooms[_room.x]) {
+          rooms[_room.x] = [];
+        }
+
+        rooms[_room.x][_room.y] = _room;
+      });
+
+      return this;
+    },
+
+    check: function(x, y) {
+      if(rooms[x] && rooms[x][y]) {
+        return rooms[x][y];
+      } else {
+        return false;
+      }
+    },
+
+    x: function(x) {
+      if(!rooms[x]) {
+        rooms[x] = [];
+      }
+
+      lastx = x;
+
+      return this;
+    },
+
+    y: function(y) {
+      if(!rooms[lastx][y]) {
+        rooms[lastx][y] = {};
+      }
+
+      lasty = y;
+
+      return this;
+    },
+
+    get: function() {
+      return rooms[lastx][lasty];
+    },
+
+    destroy: function() {
+      delete rooms[lastx][lasty];
+      return this;
+    }
+  };
+});
+
+MMO.factory('$player', function() {
+  var _x = 0;
+  var _y = 0;
+  var _style = '';
+  var _canDraw = false;
+  var _map = '';
+
+  return {
+    setxy: function(x, y) {
+      _x = parseInt(x);
+      _y = parseInt(y);
+    },
+
+    x: function() {
+      return _x;
+    },
+
+    y: function() {
+      return _y;
+    },
+
+    setStyle: function(style) {
+      _style = style;
+    },
+
+    getStyle: function() {
+      return _style;
+    },
+
+    setMap: function(mapName) {
+      _map = mapName;
+    },
+
+    map: function() {
+      return _map;
+    },
+
+    setCanDraw: function(canDraw) {
+      _canDraw = canDraw;
+    },
+
+    canDraw: function() {
+      return _canDraw;
+    }
+  };
+});

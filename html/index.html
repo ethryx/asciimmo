@@ -1,0 +1,30 @@
+<html ng-app="asciimmo">
+  <head>
+    <title>AsciiMMO.com</title>
+    <script src="//ajax.googleapis.com/ajax/libs/jquery/2.1.3/jquery.min.js"></script>
+    <script src="http://cdn.jsdelivr.net/qtip2/2.2.1/jquery.qtip.min.js"></script>
+    <link rel="stylesheet" type="text/css" href="http://cdn.jsdelivr.net/qtip2/2.2.1/jquery.qtip.min.css" />
+    <script src="//ajax.googleapis.com/ajax/libs/angularjs/1.3.8/angular.min.js"></script>
+    <script src="/socket.io/socket.io.js"></script>
+    <script src="/assets/thirdparty/underscore.min.js"></script>
+    <link rel="stylesheet" href="/assets/css/styles.css">
+  </head>
+
+  <body ng-controller="BodyController">
+
+    <div id="map-controller" ng-controller="MapController">
+      <pre ng-bind-html="viewport" class="viewport" ng-show="mapRenderAvailable"></pre>
+    </div>
+
+    <div id="log-controller" ng-controller="LogController">
+      <div ng-bind-html="html"></div>
+    </div>
+
+    <div id="input-controller" ng-controller="InputController">
+      <input type="text" ng-model="inputText" ng-focus="setInputFocus(true)" ng-blur="setInputFocus(false)" ng-keyup="onKeyUp($event)">
+    </div>
+
+    <script src="/assets/game.js"></script>
+
+  </body>
+</html>
