@@ -80,9 +80,8 @@ io.on('connection', function(socket) {
     });
 
     socket.on('mapDraw', function(drawData) {
-      if(!playerObj.canEdit){ return; }
-
       var playerObj = Game.getPlayerBySocketId(socket.id);
+      if(!playerObj.canEdit){ return; }
 
       // TODO: Check perms
 
@@ -94,9 +93,8 @@ io.on('connection', function(socket) {
     });
 
     socket.on('mapWall', function(wallData) {
-      if(!playerObj.canEdit){ return; }
-
       var playerObj = Game.getPlayerBySocketId(socket.id);
+      if(!playerObj.canEdit){ return; }
 
       // TODO: Check perms
       Game.getMap(playerObj.location.map).wall(wallData);
@@ -105,9 +103,8 @@ io.on('connection', function(socket) {
     });
 
     socket.on('mapColor', function(colorData) {
-      if(!playerObj.canEdit){ return; }
-
       var playerObj = Game.getPlayerBySocketId(socket.id);
+      if(!playerObj.canEdit){ return; }
 
       // TODO: Check perms
       Game.getMap(playerObj.location.map).color(colorData);
@@ -116,9 +113,8 @@ io.on('connection', function(socket) {
     });
 
     socket.on('mapDelete', function(drawData) {
-      if(!playerObj.canEdit){ return; }
-
       var playerObj = Game.getPlayerBySocketId(socket.id);
+      if(!playerObj.canEdit){ return; }
 
       // TODO: Check perms
       Game.getMap(playerObj.location.map).undraw( drawData );
