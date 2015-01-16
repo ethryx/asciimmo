@@ -155,6 +155,10 @@ MMO.controller('MapController', function($rootScope, $scope, $sce, $rooms, $play
     $scope.$digest();
   });
 
+  socket.on('mapFlag', function(flagData) {
+    $rooms.x(flagData.x).y(flagData.y).get().flags = flagData.flags;
+  });
+
   $(window).resize(function() {
     $scope.viewportX = Math.floor($(window).width() / 30);
     $scope.viewportY = Math.floor($(window).height() / 65);
@@ -367,6 +371,7 @@ MMO.controller('MapController', function($rootScope, $scope, $sce, $rooms, $play
         console.log(':: Animation', $rooms.x($player.x()).y($player.y()).get().animation);
         console.log(':: Link', $rooms.x($player.x()).y($player.y()).get().link);
         console.log(':: Color', $rooms.x($player.x()).y($player.y()).get().color);
+        console.log(':: Flags', $rooms.x($player.x()).y($player.y()).get().flags);
       }
 
       $scope.render();

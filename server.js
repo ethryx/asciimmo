@@ -157,6 +157,19 @@ io.on('connection', function(socket) {
           });
           socket.emit('text', 'Your map-link has been applied to the map.');
           break;
+        case 'flag':
+          if(!playerObj.canEdit || args.length !== 1){ return; }
+          var flagData = { x: playerObj.location.x, y: playerObj.location.y, flag: args[0].toLowerCase() };
+          var newFlags = Game.getMap(playerObj.location.map).toggleFlag(flagData);
+          Game.doOnMapPlayers(playerObj, true, function(_player) {
+            _player.socket.emit('mapFlag', {
+              x: flagData.x,
+              y: flagData.y,
+              flags: newFlags
+            });
+          });
+          socket.emit('text', 'Your flags have been applied to the map.');
+          break;
       }
     });
   });

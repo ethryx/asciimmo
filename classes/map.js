@@ -64,6 +64,31 @@ Map.prototype.setLink = function(linkData) {
   }
 };
 
+Map.prototype.toggleFlag = function(flagData) {
+  var existingRoom = _.findWhere(this.rooms, { x: flagData.x, y: flagData.y });
+  if(existingRoom) {
+    if(typeof existingRoom.flags === 'undefined') {
+      existingRoom.flags = new Array(flagData.flag);
+    } else {
+      var flagIndex = existingRoom.flags.indexOf(flagData.flag);
+      if(flagIndex === -1) {
+        existingRoom.flags.push(flagData.flag);
+      } else {
+        existingRoom.flags.splice(flagIndex, 1);
+      }
+    }
+    return existingRoom.flags;
+  } else {
+    var newRoom = {
+      x: flagData.x,
+      y: flagData.y,
+      flags: new Array(flagData.flag)
+    };
+    this.rooms.push(newRoom);
+    return newRoom.flags;
+  }
+};
+
 Map.prototype.getRoom = function(x, y) {
   var existingRoom = _.findWhere(this.rooms, { x: x, y: y });
   return existingRoom;
