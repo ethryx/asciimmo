@@ -46,6 +46,7 @@ MMO.controller('MapController', function($rootScope, $scope, $sce, $rooms, $play
     $player.setMap(mapData.name);
     $scope.render();
     $scope.$digest();
+    $scope.startAnimations();
   });
 
   socket.on('playerUpdate', function(updateData) {
@@ -143,6 +144,8 @@ MMO.controller('MapController', function($rootScope, $scope, $sce, $rooms, $play
 
   socket.on('mapAnimation', function(animationData) {
     $rooms.x(animationData.x).y(animationData.y).get().animation = animationData.animation;
+
+    $rooms.x(animationData.x).y(animationData.y).updateAnimation();
 
     $scope.render();
     $scope.$digest();
@@ -407,29 +410,7 @@ MMO.controller('MapController', function($rootScope, $scope, $sce, $rooms, $play
           _html += '<span class="map-you" data-id="' + playerHere.id + '" style="' + playerHere.style + '">' + playerHere.username.substr(0,1).toUpperCase() + '</span>';
         } else if($rooms.check(x, y)) {
           if($rooms.x(x).y(y).get().animation) {
-            _html += "<span class='colors color-" + (($rooms.x(x).y(y).get().animation.split(' ')[2]) ? $rooms.x(x).y(y).get().animation.split(' ')[2].substr(0, 1) : '0') + "' data-animation='" + $rooms.x(x).y(y).get().animation.split(' ')[1] + "' data-animationindex='1' data-animationcolors='" + ($rooms.x(x).y(y).get().animation.split(' ')[2] || '') + "' data-x='" + x + "' data-y='" + y + "'>" + $rooms.x(x).y(y).get().animation.split(' ')[1].substr(0, 1).replace('B', '') + "</span>";
-            var animationTimer = (function(x, y){
-              return function() {
-                var animationSequence = $('[data-x="'+x+'"][data-y="'+y+'"]').data('animation');
-                var animationColors = $('[data-x="'+x+'"][data-y="'+y+'"]').data('animationcolors').toString();
-                var animationIndex = parseInt($('[data-x="'+x+'"][data-y="'+y+'"]').data('animationindex'));
-                var nextIndex = 0;
-                if(animationIndex < animationSequence.length - 1) {
-                  nextIndex = animationIndex + 1;
-                }
-
-                $('[data-x="'+x+'"][data-y="'+y+'"]').html(animationSequence.substr(animationIndex, 1).replace('B', ' '));
-
-                for(var i = 0; i <= 9; i++) {
-                  $('[data-x="'+x+'"][data-y="'+y+'"]').removeClass('color-' + i);
-                }
-
-                $('[data-x="'+x+'"][data-y="'+y+'"]').addClass('color-' + ((animationColors) ? animationColors.substr(animationIndex, 1) : '0' ) );
-
-                $('[data-x="'+x+'"][data-y="'+y+'"]').data('animationindex', nextIndex);
-              };
-            })(x, y);
-            $scope.animationTimers.push(setInterval(animationTimer, parseInt($rooms.x(x).y(y).get().animation.split(' ')[0])));
+            _html += $rooms.x(x).y(y).initAnimation();
           } else {
             if($scope.showSpecial) {
               var _style = '';
@@ -454,6 +435,24 @@ MMO.controller('MapController', function($rootScope, $scope, $sce, $rooms, $play
     $scope.viewport = $sce.trustAsHtml( _html );
   };
 
+  $scope.animationInterval = 0;
+  $scope.startAnimations = function() {
+    if($scope.animationInterval !== 0) {
+      return;
+    }
+
+    setInterval(function() {
+      $scope.animationInterval += 200;
+
+      if($scope.animationInterval > 2000) {
+        $scope.animationInterval = 200;
+      }
+
+      $rooms.runAnimationsAtInterval($scope.animationInterval);
+    }, 200);
+  };
+
+
 });
 
 MMO.controller('LogController', function($rootScope, $scope, $sce) {
@@ -462,7 +461,7 @@ MMO.controller('LogController', function($rootScope, $scope, $sce) {
   });
 });
 
-MMO.controller('InputController', function($rootScope, $scope, $rooms, $player) {
+MMO.controller('InputController', function($rootScope, $scope) {
   $scope.setInputFocus = function(focused) {
     $rootScope.inputIsFocused = focused;
   };
@@ -505,6 +504,8 @@ MMO.factory('$rooms', function() {
   var rooms = [];
   var lastx;
   var lasty;
+  var animationTimers = [];
+  var animationNewTick = true;
 
   return {
     load: function(_rooms) {
@@ -557,7 +558,81 @@ MMO.factory('$rooms', function() {
     destroy: function() {
       delete rooms[lastx][lasty];
       return this;
+    },
+
+    initAnimation: function() {
+      if(!animationTimers[lastx] || !animationTimers[lastx][lasty]) {
+        // Let's initialize the timer
+        if(!animationTimers[lastx]) { animationTimers[lastx] = []; }
+        animationTimers[lastx][lasty] = { animationSequence: this.get().animation.split(' ')[1].toString(), animationColors: (this.get().animation.split(' ')[2] || '').toString(), animationIndex: 0, interval: parseInt(this.get().animation.split(' ')[0]), sync: false };
+        // Prepare the span
+        return '<span class="colors color-' + ((animationTimers[lastx][lasty].animationColors) ? animationTimers[lastx][lasty].animationColors.substr(0, 1) : '0') + '" data-x="' + lastx + '" data-y="' + lasty + '">' + animationTimers[lastx][lasty].animationSequence.substr(0, 1).replace('B', ' ') + '</span>';
+      } else {
+        // A timer already exists
+        var currentIndex = animationTimers[lastx][lasty].animationIndex;
+        if(currentIndex === -1) { currentIndex = 0; }
+        return '<span class="colors color-' + ((animationTimers[lastx][lasty].animationColors) ? animationTimers[lastx][lasty].animationColors.substr(currentIndex, 1) : '0') + '" data-x="' + lastx + '" data-y="' + lasty + '">' + animationTimers[lastx][lasty].animationSequence.substr(currentIndex, 1).replace('B', ' ') + '</span>';
+      }
+    },
+
+    updateAnimation: function() {
+      if(animationTimers[lastx] && animationTimers[lastx][lasty]) {
+        animationTimers[lastx][lasty].animationSequence = this.get().animation.split(' ')[1].toString();
+        animationTimers[lastx][lasty].animationColors = (this.get().animation.split(' ')[2] || '').toString();
+        animationTimers[lastx][lasty].sync = false;
+      }
+    },
+
+    runAnimationsAtInterval: function(interval, reset) {
+      for(var x in animationTimers) {
+        for(var y in animationTimers[x]) {
+          if(interval % animationTimers[x][y].interval === 0) {
+            // Flagged for deletion?
+            if(animationTimers[x][y].flagForDeletion === true) {
+              delete animationTimers[x][y];
+              continue;
+            }
+            // If it hasn't ran yet, let's reset all the animation indexes to keep everything in-sync
+            if(animationTimers[x][y].sync === false && reset !== true) {
+              for(var _x in animationTimers) {
+                for(var _y in animationTimers[_x]) {
+                  animationTimers[_x][_y].animationIndex = -1;
+                }
+              }
+              animationTimers[x][y].sync = true;
+              return this.runAnimationsAtInterval(interval, true);
+            } else if(animationTimers[x][y].sync === false && reset === true) {
+              animationTimers[x][y].sync = true;
+            }
+
+            var animationSequence = animationTimers[x][y].animationSequence;
+            var animationColors = animationTimers[x][y].animationColors;
+            var animationIndex = animationTimers[x][y].animationIndex;
+
+            if(animationIndex < animationSequence.length - 1) {
+              animationIndex++;
+            } else {
+              animationIndex = 0;
+            }
+
+            if($('[data-x="'+x+'"][data-y="'+y+'"]').length === 1) {
+              $('[data-x="'+x+'"][data-y="'+y+'"]').html(animationSequence.substr(animationIndex, 1).replace('B', ' '));
+
+              for(var i = 0; i <= 9; i++) {
+                $('[data-x="'+x+'"][data-y="'+y+'"]').removeClass('color-' + i);
+              }
+
+              $('[data-x="'+x+'"][data-y="'+y+'"]').addClass('color-' + ((animationColors) ? animationColors.substr(animationIndex, 1) : '0' ) );
+
+              animationTimers[x][y].animationIndex = animationIndex;
+            } else {
+              animationTimers[x][y].flagForDeletion = true;
+            }
+          }
+        }
+      }
     }
+
   };
 });
 
