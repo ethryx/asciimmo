@@ -278,10 +278,14 @@ setInterval(function() {
         return;
       }
 
-      var currentPathIndex = obj.path.split('|').indexOf(obj.x.toString() + ',' + obj.y.toString());
+      var currentPathIndex = obj.index || 0;
       var nextPathIndex = currentPathIndex + 1;
 
       if(nextPathIndex > obj.path.split('|').length - 1) {
+        nextPathIndex = 0;
+      }
+
+      if(!obj.path.split('|')[nextPathIndex]) {
         nextPathIndex = 0;
       }
 
