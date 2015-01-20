@@ -127,6 +127,9 @@ Map.prototype.getRoom = function(x, y) {
 Map.prototype.createObject = function(objectName, x, y) {
   var objExists = _.findWhere(this.objects, { name: objectName });
   if(!objExists) {
+    if(!this.objects) {
+      this.objects = [];
+    }
     var newObject = {
       x: x,
       y: y,
