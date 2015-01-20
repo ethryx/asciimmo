@@ -278,7 +278,7 @@ setInterval(function() {
         return;
       }
 
-      var currentPathIndex = obj.index || -1;
+      var currentPathIndex = ((typeof obj.index === 'undefined') ? -1 : obj.index);
       var nextPathIndex = currentPathIndex + 1;
 
       if(nextPathIndex > obj.path.split('|').length - 1) {
