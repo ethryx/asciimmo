@@ -265,9 +265,9 @@ MMO.controller('MapController', function($rootScope, $scope, $sce, $rooms, $play
         return;
     }
 
-    // Wall?
+    // Wall (hit wall unless going into object)?
     if($rooms.check(x, y) && $rooms.x(x).y(y).get().wall === true) {
-      if(!($player.canDraw() && evt.shiftKey)) {
+      if(!($player.canDraw() && evt.shiftKey) && !$rooms.getObjectDataAt(x, y)) {
         return;
       }
     }
