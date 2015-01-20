@@ -48,7 +48,17 @@ Player.prototype.save = function(doneCallback) {
 };
 
 Player.prototype.getStyle = function() {
-  return 'color:#000;background-color: ' + this.backgroundColor + ';';
+  var _style = '';
+
+  if(this.canEdit) {
+    _style += 'color:#900;border-bottom:3px solid #900;';
+  } else {
+    _style += 'color:#000;';
+  }
+
+  _style += 'background-color:' + this.backgroundColor;
+
+  return _style;
 };
 
 Player.prototype.renderMap = function(map, shouldCreate) {
@@ -59,6 +69,7 @@ Player.prototype.renderMap = function(map, shouldCreate) {
   this.socket.emit('mapRender', {
     name: map.name,
     rooms: map.rooms,
+    objects: map.objects,
     locationX: this.location.x,
     locationY: this.location.y
   });

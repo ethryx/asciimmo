@@ -83,11 +83,9 @@ io.on('connection', function(socket) {
       var playerObj = Game.getPlayerBySocketId(socket.id);
       if(!playerObj.canEdit){ return; }
 
-      // TODO: Check perms
+      Game.getMap(playerObj.location.map).draw(drawData, playerObj.editingObject);
 
-      Game.getMap(playerObj.location.map).draw( drawData );
-
-      Game.mapUpdate(playerObj, playerObj.location, drawData.symbol);
+      Game.mapUpdate(playerObj, playerObj.location, drawData.symbol, playerObj.editingObject);
       playerObj.location.x++;
       Game.updateSurroundingPlayers(playerObj);
     });
@@ -106,7 +104,6 @@ io.on('connection', function(socket) {
       var playerObj = Game.getPlayerBySocketId(socket.id);
       if(!playerObj.canEdit){ return; }
 
-      // TODO: Check perms
       Game.getMap(playerObj.location.map).color(colorData);
 
       Game.mapUpdateColor(playerObj, colorData);
@@ -116,10 +113,18 @@ io.on('connection', function(socket) {
       var playerObj = Game.getPlayerBySocketId(socket.id);
       if(!playerObj.canEdit){ return; }
 
-      // TODO: Check perms
-      Game.getMap(playerObj.location.map).undraw( drawData );
+      Game.getMap(playerObj.location.map).undraw(drawData, playerObj.editingObject, function onObjectDelete() {
+        Game.doOnMapPlayers(playerObj, true, function(_player) {
+          _player.socket.emit('objectDelete', {
+            name: playerObj.editingObject
+          });
+          playerObj.editingObject = false;
+          _player.socket.emit('text', 'No longer editing object. Object has been deleted.');
+        });
+      });
 
-      Game.mapUpdateDelete(playerObj, playerObj.location);
+      Game.mapUpdateDelete(playerObj, playerObj.location, playerObj.editingObject);
+
       playerObj.location.x--;
       Game.updateSurroundingPlayers(playerObj);
     });
@@ -166,6 +171,76 @@ io.on('connection', function(socket) {
           });
           socket.emit('text', 'Your flag has been applied to the map.');
           break;
+        case 'objedit':
+          if(!playerObj.canEdit){ return; }
+          var objHere = Game.getMap(playerObj.location.map).getObjectAt(playerObj.location.x, playerObj.location.y);
+          if(playerObj.editingObject) {
+            playerObj.editingObject = null;
+            socket.emit('text', 'You are no longer editing any objects.');
+            socket.emit('editingObject', { obj: null });
+          } else if(objHere) {
+            socket.emit('text', 'You are now editing \'' + objHere.name + '\'.');
+            socket.emit('editingObject', { obj: objHere.name });
+            playerObj.editingObject = objHere.name;
+          } else {
+            socket.emit('text', 'There are no objects here. Hold SHIFT to see the objects around you.');
+          }
+          break;
+        case 'objpath':
+          if(!playerObj.canEdit){ return; }
+          var objHere = Game.getMap(playerObj.location.map).getObjectAt(playerObj.location.x, playerObj.location.y);
+          if(objHere) {
+            if(args.length === 0) {
+              socket.emit('text', 'The object path for ' + objHere.name + ' is: ' + objHere.path);
+            } else {
+              objHere.path = args[0];
+              socket.emit('text', 'The object path has been set for ' + objHere.name + '.');
+            }
+          } else {
+            socket.emit('text', 'There are no objects here. Hold SHIFT to see the objects around you.');
+          }
+          break;
+        case 'objstops':
+          if(!playerObj.canEdit){ return; }
+          var objHere = Game.getMap(playerObj.location.map).getObjectAt(playerObj.location.x, playerObj.location.y);
+          if(objHere) {
+            if(args.length === 0) {
+              socket.emit('text', 'The object stops for ' + objHere.name + ' are: ' + objHere.stops);
+            } else {
+              objHere.stops = args[0];
+              socket.emit('text', 'The object stops have been set for ' + objHere.name + '.');
+            }
+          } else {
+            socket.emit('text', 'There are no objects here. Hold SHIFT to see the objects around you.');
+          }
+          break;
+        case 'objhalt':
+          if(!playerObj.canEdit){ return; }
+          var objHere = Game.getMap(playerObj.location.map).getObjectAt(playerObj.location.x, playerObj.location.y);
+          if(objHere) {
+            if(objHere.halt) {
+              objHere.halt = false;
+              socket.emit('text', 'The object ' + objHere.name + ' has been resumed.');
+            } else {
+              objHere.halt = true;
+              socket.emit('text', 'The object ' + objHere.name + ' has been halted.');
+            }
+          } else {
+            socket.emit('text', 'There are no objects here. Hold SHIFT to see the objects around you.');
+          }
+          break;
+        case 'objcreate':
+          if(!playerObj.canEdit || args.length !== 1){ return; }
+          var objectCreationSuccessful = Game.getMap(playerObj.location.map).createObject(args[0], playerObj.location.x, playerObj.location.y);
+          if(objectCreationSuccessful !== false) {
+            socket.emit('text', 'An object has been created: ' + objectCreationSuccessful.name);
+            Game.doOnMapPlayers(playerObj, true, function(_player) {
+              _player.socket.emit('objectCreate', objectCreationSuccessful);
+            });
+          } else {
+            socket.emit('text', 'The object could not be created.');
+          }
+          break;
       }
     });
   });
@@ -179,6 +254,78 @@ io.on('connection', function(socket) {
     console.log('Socket connection closed id=%s', socket.id);
   });
 });
+
+// Handle movement ticks for objects
+setInterval(function() {
+  Game.eachMap(function(map) {
+    if(!map.objects) {
+      return;
+    }
+
+    map.objects.forEach(function(obj) {
+
+      if(!obj.path || obj.halt === true) {
+        return;
+      }
+
+      if(typeof obj.pathTick === 'undefined') {
+        obj.pathTick = 1;
+      }
+
+      obj.pathTick--;
+
+      if(obj.pathTick > 0) {
+        return;
+      }
+
+      var currentPathIndex = obj.path.split('|').indexOf(obj.x.toString() + ',' + obj.y.toString());
+      var nextPathIndex = currentPathIndex + 1;
+
+      if(nextPathIndex > obj.path.split('|').length - 1) {
+        nextPathIndex = 0;
+      }
+
+      var oldx = obj.x;
+      var oldy = obj.y;
+
+      obj.x = parseInt(obj.path.split('|')[nextPathIndex].split(',')[0]);
+      obj.y = parseInt(obj.path.split('|')[nextPathIndex].split(',')[1]);
+      obj.pathTick = ((obj.stops && obj.stops.split('|').indexOf(obj.x.toString() + ',' + obj.y.toString()) > -1) ? 30 : 1);
+
+      Game.doOnSurroundingPlayersUsingMap(map.name, 50, oldx, oldy, function(_player) {
+        for(var r = 0; r < obj.rooms.length; r++) {
+          var oldObjectRoomX = oldx + obj.rooms[r].x;
+          var oldObjectRoomY = oldy + obj.rooms[r].y;
+
+          if(_player.location.x === oldObjectRoomX && _player.location.y === oldObjectRoomY) {
+            var playerOldRoomRelativeX = _player.location.x - oldx;
+            var playerOldRoomRelativeY = _player.location.y - oldy;
+
+            _player.location.x = obj.x + playerOldRoomRelativeX;
+            _player.location.y = obj.y + playerOldRoomRelativeY;
+
+            _player.socket.emit('playerMovement', {
+              x: _player.location.x,
+              y: _player.location.y
+            });
+
+            Game.updateSurroundingPlayers(_player);
+
+            break;
+          }
+        }
+      });
+
+      Game.doOnMapPlayersUsingMap(map.name, function(_player) {
+        _player.socket.emit('objectMove', {
+          name: obj.name,
+          x: obj.x,
+          y: obj.y
+        });
+      });
+    });
+  });
+}, 1000);
 
 // De-init stuff
 process.on('SIGINT', function() {

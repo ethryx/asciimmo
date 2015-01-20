@@ -41,7 +41,7 @@ MMO.controller('MapController', function($rootScope, $scope, $sce, $rooms, $play
   socket.on('mapRender', function(mapData) {
     $rootScope.addLine('You have entered \'' + mapData.name + '\'!');
     $scope.mapRenderAvailable = true;
-    $rooms.load(mapData.rooms);
+    $rooms.load(mapData.rooms, mapData.objects).initObjectRendering();
     $player.setxy(mapData.locationX, mapData.locationY);
     $player.setMap(mapData.name);
     $scope.render();
@@ -83,16 +83,61 @@ MMO.controller('MapController', function($rootScope, $scope, $sce, $rooms, $play
     }
   });
 
+  socket.on('playerMovement', function(movementData) {
+    $player.setxy(movementData.x, movementData.y);
+    $scope.render();
+    $scope.$digest();
+  });
+
+  socket.on('text', function(text) {
+    $rootScope.addLine(text);
+  });
+
+  socket.on('editingObject', function(editingData) {
+    $player.setEditingObject(editingData.obj);
+  });
+
+  socket.on('objectMove', function(objectMoveData) {
+    $rooms.moveObject(objectMoveData.name, objectMoveData.x, objectMoveData.y);
+    $rooms.initObjectRendering();
+
+    $scope.render();
+    $scope.$digest();
+  });
+
+  socket.on('objectCreate', function(objectCreation) {
+    $rooms.createObject(objectCreation);
+    $rooms.initObjectRendering();
+
+    $scope.render();
+    $scope.$digest();
+  });
+
+  socket.on('objectDelete', function(objectDeletion) {
+    $rooms.deleteObject(objectDeletion.name);
+    $rooms.initObjectRendering();
+  });
+
   socket.on('mapUpdate', function(updateData) {
-    $rooms.x(updateData.x).y(updateData.y).get().symbol = updateData.symbol;
+    if(!updateData.obj) {
+      $rooms.x(updateData.x).y(updateData.y).get().symbol = updateData.symbol;
+    } else {
+      $rooms.addSymbolToObject(updateData.obj, updateData.x, updateData.y, updateData.symbol);
+      $rooms.initObjectRendering();
+    }
 
     $scope.render();
     $scope.$digest();
   });
 
   socket.on('mapDelete', function(updateData) {
-    if($rooms.check(updateData.x, updateData.y)) {
-      $rooms.x(updateData.x).y(updateData.y).destroy();
+    if(!updateData.obj) {
+      if($rooms.check(updateData.x, updateData.y)) {
+        $rooms.x(updateData.x).y(updateData.y).destroy();
+      }
+    } else {
+      $rooms.removeRoomFromObject(updateData.obj, updateData.x, updateData.y);
+      $rooms.initObjectRendering();
     }
 
     $scope.render();
@@ -136,10 +181,6 @@ MMO.controller('MapController', function($rootScope, $scope, $sce, $rooms, $play
     });
 
     $rootScope.addLine("<span style='" + sayData.style + "'>" + sayData.username.substr(0, 1).toUpperCase() + "</span>&nbsp;" + sayData.username + ": " + sayData.text);
-  });
-
-  socket.on('text', function(text) {
-    $rootScope.addLine(text);
   });
 
   socket.on('mapAnimation', function(animationData) {
@@ -226,10 +267,19 @@ MMO.controller('MapController', function($rootScope, $scope, $sce, $rooms, $play
 
     // Wall?
     if($rooms.check(x, y) && $rooms.x(x).y(y).get().wall === true) {
-      if($player.canDraw() && evt.shiftKey) {
-        // Allow passing
-      } else {
+      if(!($player.canDraw() && evt.shiftKey)) {
         return;
+      }
+    }
+
+    // In an object?
+    if($rooms.getObjectDataAt($player.x(), $player.y())) {
+      // Moving outside of object?
+      if(!$rooms.getObjectDataAt(x, y)) {
+        // Contains 'objectexit' flag?
+        if(!$rooms.x(x).y(y).hasFlag('objectexit') && !($player.canDraw() && evt.shiftKey)) {
+          return;
+        }
       }
     }
 
@@ -253,13 +303,20 @@ MMO.controller('MapController', function($rootScope, $scope, $sce, $rooms, $play
 
     // Special key: backspace (delete a room)
     if(keyCode === 8) {
-      if($rooms.check($player.x() - 1, $player.y())) {
-        $rooms.x($player.x() - 1).y($player.y()).destroy();
+      if(!$player.getEditingObject()) {
+        if($rooms.check($player.x() - 1, $player.y())) {
+          $rooms.x($player.x() - 1).y($player.y()).destroy();
+        }
+      } else {
+        $rooms.removeRoomFromObject($player.getEditingObject(), $player.x() - 1, $player.y());
+        $rooms.initObjectRendering();
       }
+
       socket.emit('mapDelete', {
         x: $player.x() - 1,
         y: $player.y()
       });
+
       $player.setxy($player.x() - 1, $player.y());
       $scope.$digest();
       return;
@@ -324,12 +381,19 @@ MMO.controller('MapController', function($rootScope, $scope, $sce, $rooms, $play
     var drawSymbol = $scope.drawTable(shiftKey, keyCode);
 
     if(drawSymbol !== null) {
-      $rooms.x($player.x()).y($player.y()).get().symbol = drawSymbol;
+      if(!$player.getEditingObject()) {
+        $rooms.x($player.x()).y($player.y()).get().symbol = drawSymbol;
+      } else {
+        $rooms.addSymbolToObject($player.getEditingObject(), $player.x(), $player.y(), drawSymbol);
+        $rooms.initObjectRendering();
+      }
+
       socket.emit('mapDraw', {
         x: $player.x(),
         y: $player.y(),
         symbol: drawSymbol
       });
+
       $player.setxy($player.x() + 1, $player.y());
       $scope.$digest();
     }
@@ -367,7 +431,7 @@ MMO.controller('MapController', function($rootScope, $scope, $sce, $rooms, $play
     return $player.x().toString() + ',' + $player.y().toString();
   }, function() {
     if($scope.mapRenderAvailable) {
-      console.log('#######')
+      console.log('#######');
       console.log('- Location:', $player.x(), $player.y());
       if($rooms.check($player.x(), $player.y())) {
         console.log(':: Wall', $rooms.x($player.x()).y($player.y()).get().wall);
@@ -404,10 +468,17 @@ MMO.controller('MapController', function($rootScope, $scope, $sce, $rooms, $play
     for(var y = $player.y() - $scope.viewportY; y < ($player.y() + $scope.viewportY); y++) {
       for(var x = $player.x() - $scope.viewportX; x < ($player.x() + $scope.viewportX); x++) {
         var playerHere = _.findWhere($scope.players, { x: x, y: y, map: $player.map() });
+        var objectDataHere = $rooms.getObjectDataAt(x, y);
         if(x === $player.x() && y === $player.y()) {
           _html += '<span class="map-you" data-id="' + $scope.id + '" style="' + $player.getStyle() + '">' + $scope.username.substr(0,1).toUpperCase() + '</span>';
         } else if(playerHere) {
           _html += '<span class="map-you" data-id="' + playerHere.id + '" style="' + playerHere.style + '">' + playerHere.username.substr(0,1).toUpperCase() + '</span>';
+        } else if(objectDataHere) {
+          if($scope.showSpecial) {
+          _html += '<span style="color:#fff;background-color:#009">' + (objectDataHere.symbol || ' ') + '</span>' ;
+          } else {
+            _html += objectDataHere.symbol || ' ';
+          }
         } else if($rooms.check(x, y)) {
           if($rooms.x(x).y(y).get().animation) {
             _html += $rooms.x(x).y(y).initAnimation();
@@ -502,13 +573,15 @@ MMO.controller('InputController', function($rootScope, $scope) {
 
 MMO.factory('$rooms', function() {
   var rooms = [];
+  var objects = [];
+  var objectRendering = [];
   var lastx;
   var lasty;
   var animationTimers = [];
-  var animationNewTick = true;
 
   return {
-    load: function(_rooms) {
+    load: function(_rooms, _objects) {
+      // load roams
       delete rooms;
       rooms = [];
 
@@ -519,6 +592,9 @@ MMO.factory('$rooms', function() {
 
         rooms[_room.x][_room.y] = _room;
       });
+
+      // store objects
+      objects = _objects || [];
 
       return this;
     },
@@ -558,6 +634,81 @@ MMO.factory('$rooms', function() {
     destroy: function() {
       delete rooms[lastx][lasty];
       return this;
+    },
+
+    hasFlag: function(flag) {
+      if(!rooms[lastx][lasty].flags || rooms[lastx][lasty].flags.indexOf(flag) === -1) {
+        return false;
+      } else {
+        return true;
+      }
+    },
+
+    initObjectRendering: function() {
+      objectRendering = [];
+
+      objects.forEach(function(_obj) {
+        _obj.rooms.forEach(function(_objRoom) {
+          var x = _obj.x + _objRoom.x;
+          var y = _obj.y + _objRoom.y;
+
+          if(!objectRendering[x]) { objectRendering[x] = []; }
+
+          objectRendering[x][y] = _objRoom;
+          objectRendering[x][y].parentObject = _obj;
+        });
+      });
+
+      return this;
+    },
+
+    createObject: function(obj) {
+      objects.push(obj);
+    },
+
+    deleteObject: function(objName) {
+      var obj = _.findWhere(objects, { name: objName });
+      if(obj) {
+        objects.splice(objects.indexOf(obj), 1);
+      }
+    },
+
+    getObjectDataAt: function(x, y) {
+      if(objectRendering[x] && objectRendering[x][y]) {
+        return objectRendering[x][y];
+      } else {
+        return null;
+      }
+    },
+
+    addSymbolToObject: function(objectName, x, y, symbol) {
+      var objHere = _.findWhere(objects, { name: objectName });
+      var roomExists = _.findWhere(objHere.rooms, { x: (x - objHere.x), y: (y - objHere.y) });
+      if(roomExists) {
+        roomExists.symbol = symbol;
+      } else {
+        objHere.rooms.push({
+          x: (x - objHere.x),
+          y: (y - objHere.y),
+          symbol: symbol
+        });
+      }
+    },
+
+    removeRoomFromObject: function(objectName, x, y) {
+      var objHere = _.findWhere(objects, { name: objectName });
+      var roomExists = _.findWhere(objHere.rooms, { x: (x - objHere.x), y: (y - objHere.y) });
+      if(roomExists) {
+        objHere.rooms.splice(objHere.rooms.indexOf(roomExists, 1));
+      }
+    },
+
+    moveObject: function(objectName, x, y) {
+      var objHere = _.findWhere(objects, { name: objectName });
+      if(objHere) {
+        objHere.x = x;
+        objHere.y = y;
+      }
     },
 
     initAnimation: function() {
@@ -642,6 +793,7 @@ MMO.factory('$player', function() {
   var _style = '';
   var _canDraw = false;
   var _map = '';
+  var _editingObj = null;
 
   return {
     setxy: function(x, y) {
@@ -679,6 +831,14 @@ MMO.factory('$player', function() {
 
     canDraw: function() {
       return _canDraw;
-    }
+    },
+
+    setEditingObject: function(obj) {
+      _editingObj = obj;
+    },
+
+    getEditingObject: function() {
+      return _editingObj;
+    },
   };
 });

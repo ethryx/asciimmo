@@ -68,6 +68,12 @@ Game.prototype.createNewMap = function(mapName) {
   return newMap;
 };
 
+Game.prototype.eachMap = function(func) {
+  this.maps.forEach(function(_map) {
+    func(_map);
+  });
+};
+
 Game.prototype.addPlayer = function(socket) {
   if(!this.getPlayerBySocketId(socket.id)) {
     var newPlayer = new Player(socket, this);
@@ -121,10 +127,38 @@ Game.prototype.doOnSurroundingPlayers = function(player, radius, includingSelf, 
   });
 };
 
+Game.prototype.doOnSurroundingPlayersUsingMap = function(map, radius, x, y, doFunc) {
+  this.players.forEach(function(_player) {
+    if(_player.location.type === 'map' && _player.location.map === map) {
+      if( Math.abs(_player.location.x - x) < radius && Math.abs(_player.location.y - y) < radius ) {
+        doFunc(_player);
+      }
+    }
+  });
+};
+
 Game.prototype.doOnMapPlayers = function(player, includingSelf, doFunc) {
   this.players.forEach(function(_player) {
     if(_player.location.type === 'map' && _player.location.map === player.location.map) {
       if(_player !== player || includingSelf === true) {
+        doFunc(_player);
+      }
+    }
+  });
+};
+
+Game.prototype.doOnMapPlayersUsingMap = function(map, doFunc) {
+  this.players.forEach(function(_player) {
+    if(_player.location.type === 'map' && _player.location.map === map) {
+      doFunc(_player);
+    }
+  });
+};
+
+Game.prototype.doOnMapPlayersAt = function(map, x, y, doFunc) {
+  this.players.forEach(function(_player) {
+    if(_player.location.type === 'map' && _player.location.map === map) {
+      if(_player.location.x === x && _player.location.y === y) {
         doFunc(_player);
       }
     }
@@ -179,21 +213,23 @@ Game.prototype.sayToSurroundingPlayers = function(player, sayText) {
   });
 };
 
-Game.prototype.mapUpdate = function(player, locationData, symbol) {
+Game.prototype.mapUpdate = function(player, locationData, symbol, obj) {
   this.doOnMapPlayers(player, false, function(_player) {
     _player.socket.emit('mapUpdate', {
       x: locationData.x,
       y: locationData.y,
-      symbol: symbol
+      symbol: symbol,
+      obj: obj || null
     });
   });
 };
 
-Game.prototype.mapUpdateDelete = function(player, locationData) {
+Game.prototype.mapUpdateDelete = function(player, locationData, obj) {
   this.doOnMapPlayers(player, false, function(_player) {
     _player.socket.emit('mapDelete', {
       x: locationData.x - 1,
-      y: locationData.y
+      y: locationData.y,
+      obj: obj || null
     });
   });
 };
