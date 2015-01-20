@@ -295,6 +295,7 @@ setInterval(function() {
       obj.x = parseInt(obj.path.split('|')[nextPathIndex].split(',')[0]);
       obj.y = parseInt(obj.path.split('|')[nextPathIndex].split(',')[1]);
       obj.pathTick = ((obj.stops && obj.stops.split('|').indexOf(obj.x.toString() + ',' + obj.y.toString()) > -1) ? 30 : 1);
+      obj.index = nextPathIndex;
 
       Game.doOnSurroundingPlayersUsingMap(map.name, 50, oldx, oldy, function(_player) {
         for(var r = 0; r < obj.rooms.length; r++) {
