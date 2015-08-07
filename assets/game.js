@@ -27,6 +27,7 @@ MMO.controller('MapController', function($rootScope, $scope, $sce, $rooms, $play
   $scope.viewportY = Math.floor($(window).height() / 65); // Monspace font size
 
   $scope.players = [];
+  $scope.lastMovement = Date.now();
 
   socket.on('loggedIn', function(loginData) {
     $scope.id = loginData.id;
@@ -227,19 +228,13 @@ MMO.controller('MapController', function($rootScope, $scope, $sce, $rooms, $play
       $scope.render();
       $scope.$digest();
     }
-  });
 
-  $(document).on('keyup', function(evt) {
-    if(!$scope.mapRenderAvailable) {
+    // Movement delay?
+    if((Date.now() - $scope.lastMovement) < 50) {
       return;
     }
 
-    if(evt.keyCode === 16 && $scope.showSpecial) {
-      $scope.showSpecial = false;
-      $scope.render();
-      $scope.$digest();
-      return;
-    }
+    $scope.lastMovement = Date.now();
 
     var x = $player.x();
     var y = $player.y();
@@ -294,6 +289,19 @@ MMO.controller('MapController', function($rootScope, $scope, $sce, $rooms, $play
 
     $scope.render();
     $scope.$digest();
+  });
+
+  $(document).on('keyup', function(evt) {
+    if(!$scope.mapRenderAvailable) {
+      return;
+    }
+
+    if(evt.keyCode === 16 && $scope.showSpecial) {
+      $scope.showSpecial = false;
+      $scope.render();
+      $scope.$digest();
+      return;
+    }
   });
 
   $scope.draw = function(shiftKey, ctrlKey, keyCode) {
