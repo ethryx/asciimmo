@@ -18,7 +18,7 @@ MMO.controller('BodyController', function($rootScope) {
   console.log('Welcome to AsciiMMO!');
 });
 
-MMO.controller('MapController', function($rootScope, $scope, $sce, $rooms, $player) {
+MMO.controller('MapController', function($rootScope, $scope, $sce, $rooms, $player, $sound) {
 
   $scope.mapRenderAvailable = false;
   $scope.showSpecial = false;
@@ -28,6 +28,8 @@ MMO.controller('MapController', function($rootScope, $scope, $sce, $rooms, $play
 
   $scope.players = [];
   $scope.lastMovement = Date.now();
+
+  $sound.preload();
 
   socket.on('loggedIn', function(loginData) {
     $scope.id = loginData.id;
@@ -161,7 +163,6 @@ MMO.controller('MapController', function($rootScope, $scope, $sce, $rooms, $play
   });
 
   socket.on('mapSay', function(sayData) {
-    console.log(sayData);
     $('[data-id="' + sayData.id + '"]').qtip({
       style: 'qtip-tipsy',
       position: {
@@ -180,6 +181,8 @@ MMO.controller('MapController', function($rootScope, $scope, $sce, $rooms, $play
         inactive: 2000
       }
     });
+
+    $sound.playSoundEffect('chatmsg');
 
     $rootScope.addLine("<span style='" + sayData.style + "'>" + sayData.username.substr(0, 1).toUpperCase() + "</span>&nbsp;" + sayData.username + ": " + sayData.text);
   });
@@ -568,7 +571,6 @@ MMO.controller('InputController', function($rootScope, $scope) {
       }
 
       $scope.inputText = '';
-      $(evt.target).blur();
       evt.preventDefault();
     }
   };
@@ -848,5 +850,18 @@ MMO.factory('$player', function() {
     getEditingObject: function() {
       return _editingObj;
     },
+  };
+});
+
+MMO.factory('$sound', function() {
+  return {
+    preload: function() {
+      console.log('Preloading sounds..');
+      createjs.Sound.registerSound("assets/sounds/chat_message.wav", "chatmsg");
+    },
+
+    playSoundEffect: function(sfx) {
+      createjs.Sound.play(sfx);
+    }
   };
 });
