@@ -23,11 +23,13 @@
       <div ng-bind-html="html"></div>
     </div>
 
+    <div id="stats-controller" ng-controller="StatsController">
+      <div class="inventory">Inventory: nothing.</div>
+    </div>
+
     <div id="input-controller" ng-controller="InputController">
       <input type="text" placeholder="Type what you want to say.." ng-model="inputText" ng-focus="setInputFocus(true)" ng-blur="setInputFocus(false)" ng-keyup="onKeyUp($event)">
     </div>
-
-    <div class="chat-bubble animated fadeOutUp">chat text here..</div>
 
     <script src="/assets/game.js"></script>
 

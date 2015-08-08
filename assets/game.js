@@ -18,7 +18,7 @@ MMO.controller('BodyController', function($rootScope) {
   console.log('Welcome to AsciiMMO!');
 });
 
-MMO.controller('MapController', function($rootScope, $scope, $sce, $rooms, $player, $sound) {
+MMO.controller('MapController', function($rootScope, $scope, $sce, $rooms, $player, $sound, $utils, $timeout) {
 
   $scope.mapRenderAvailable = false;
   $scope.showSpecial = false;
@@ -50,6 +50,8 @@ MMO.controller('MapController', function($rootScope, $scope, $sce, $rooms, $play
     $scope.render();
     $scope.$digest();
     $scope.startAnimations();
+    $utils.destroyChatBubbles();
+    $sound.playSoundEffect('newarea');
   });
 
   socket.on('playerUpdate', function(updateData) {
@@ -66,6 +68,12 @@ MMO.controller('MapController', function($rootScope, $scope, $sce, $rooms, $play
 
     $scope.render();
     $scope.$digest();
+
+    if(!playerObj) {
+      $timeout(function() {
+        $('.map-you[data-id="' + updateData.id + '"]').hide().fadeIn();
+      });
+    }
   });
 
   socket.on('playerRemove', function(removeData) {
@@ -81,8 +89,10 @@ MMO.controller('MapController', function($rootScope, $scope, $sce, $rooms, $play
     }
 
     if(render) {
-      $scope.render();
-      $scope.$digest();
+      $('.map-you[data-id="' + removeData.id + '"]').fadeOut(function() {
+        $scope.render();
+        $scope.$digest();
+      });
     }
   });
 
@@ -163,24 +173,7 @@ MMO.controller('MapController', function($rootScope, $scope, $sce, $rooms, $play
   });
 
   socket.on('mapSay', function(sayData) {
-    $('[data-id="' + sayData.id + '"]').qtip({
-      style: 'qtip-tipsy',
-      position: {
-        my: 'bottom left',
-        at: 'top right'
-      },
-      content: {
-        text: sayData.username + ': ' + sayData.text
-      },
-      show: {
-        when:false,
-        event:false,
-        ready:true
-      },
-      hide: {
-        inactive: 2000
-      }
-    });
+    $utils.chatBubble(sayData.id, sayData.text);
 
     $sound.playSoundEffect('chatmsg');
 
@@ -289,6 +282,8 @@ MMO.controller('MapController', function($rootScope, $scope, $sce, $rooms, $play
       y: $player.y(),
       shiftKey: evt.shiftKey
     });
+
+    $sound.playSoundEffect('step');
 
     $scope.render();
     $scope.$digest();
@@ -534,6 +529,10 @@ MMO.controller('MapController', function($rootScope, $scope, $sce, $rooms, $play
     }, 200);
   };
 
+
+});
+
+MMO.controller('StatsController', function($rootScope, $scope, $sce) {
 
 });
 
@@ -858,10 +857,29 @@ MMO.factory('$sound', function() {
     preload: function() {
       console.log('Preloading sounds..');
       createjs.Sound.registerSound("assets/sounds/chat_message.wav", "chatmsg");
+      createjs.Sound.registerSound("assets/sounds/step.wav", "step");
+      createjs.Sound.registerSound("assets/sounds/new_area.wav", "newarea");
     },
 
     playSoundEffect: function(sfx) {
       createjs.Sound.play(sfx);
     }
   };
+});
+
+MMO.factory('$utils', function() {
+  return {
+    chatBubble: function(playerId, text) {
+      var currentPosition = $('[data-id="' + playerId + '"]').position();
+
+      var topOffset = currentPosition.top - 25;
+      var leftOffset = currentPosition.left - 10;
+
+      $('body').append('<div class="chat-bubble animated fadeOutUp" data-playerid="' + playerId + '" style="top:' + topOffset + ';left:' + leftOffset + '">' + text + '</div>');
+    },
+
+    destroyChatBubbles: function() {
+      $('.chat-bubble').remove();
+    }
+  }
 });

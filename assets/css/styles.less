@@ -41,10 +41,10 @@ html, body {
     height: 100%;
     width: 100%;
     border: 0;
-    background-color: rgba(0,0,0,0.1);
+    background-color: rgba(0,0,0,0.85);
     font-family: 'Inconsolata', monospace;
     font-size: 17px;
-    color: #000;
+    color: #fff;
     padding: 6px;
 
     &:focus {
@@ -60,14 +60,41 @@ html, body {
   position: absolute;
   bottom: 40;
   left: 10;
-  background-color: rgba(0,0,0,0.1);
-  color: #000;
+  background-color: rgba(0,0,0,0.85);
+  color: #fff;
   overflow-y: scroll;
+
+  &::-webkit-scrollbar {
+    background-color: rgba(25,25,25,0.1);
+    width: 10px;
+  }
+  &::-webkit-scrollbar-track {
+   background-color: rgba(25,25,25,0.1);
+  }
+  &::-webkit-scrollbar-thumb {
+    background-color: #888;
+  }
 
   div {
     padding: 5px;
     font-family: 'Inconsolata', monospace;
     font-size: 17px;
+  }
+}
+
+#stats-controller {
+  height: 180px;
+  width: 48%;
+  z-index: 2;
+  position: absolute;
+  bottom: 10;
+  right: 10;
+  background-color: rgba(0,0,0,0.85);
+  color: #fff;
+  font-family: 'Inconsolata', monospace;
+
+  .inventory {
+    padding: 5px;
   }
 }
 
@@ -77,13 +104,11 @@ html, body {
 
 .chat-bubble {
   position: absolute;
-  top: 150px;
-  left: 200;
   background-color: rgba(0, 0, 0, 0.59);
   padding: 6px 9px;
   color: #fff;
   font-family: 'Inconsolata';
-  font-size: 14px;
+  font-size: 16px;
   border-radius: 10px;
   animation-duration: 8s !important;
   -webkit-animation-duration: 8s !important;
