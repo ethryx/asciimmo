@@ -22,9 +22,11 @@ MMO.controller('MapController', function($rootScope, $scope, $sce, $rooms, $play
 
   $scope.mapRenderAvailable = false;
   $scope.showSpecial = false;
+  $scope.modes = { DEFAULT: 0, EDITING: 1 };
+  $scope.mode = $scope.modes.DEFAULT;
 
   $scope.viewportX = Math.floor($(window).width() / 30); // Monospace font size
-  $scope.viewportY = Math.floor($(window).height() / 65); // Monspace font size
+  $scope.viewportY = Math.floor(($(window).height() - 180) / 65); // Monspace font size
 
   $scope.players = [];
   $scope.lastMovement = Date.now();
@@ -42,8 +44,9 @@ MMO.controller('MapController', function($rootScope, $scope, $sce, $rooms, $play
   });
 
   socket.on('mapRender', function(mapData) {
-    $rootScope.addLine('You have entered \'' + mapData.name + '\'!');
+    $rootScope.addLine('You are now in <strong>' + mapData.title + '</strong>!');
     $scope.mapRenderAvailable = true;
+    $scope.mapTitle = mapData.title;
     $rooms.load(mapData.rooms, mapData.objects).initObjectRendering();
     $player.setxy(mapData.locationX, mapData.locationY);
     $player.setMap(mapData.name);
@@ -52,6 +55,16 @@ MMO.controller('MapController', function($rootScope, $scope, $sce, $rooms, $play
     $scope.startAnimations();
     $utils.destroyChatBubbles();
     $sound.playSoundEffect('newarea');
+  });
+
+  socket.on('styleupdate', function(newStyle) {
+    $player.setStyle(newStyle);
+    $scope.render();
+    $scope.$digest();
+  });
+
+  socket.on('mapTitleChange', function(newMapTitle) {
+    $scope.mapTitle = newMapTitle;
   });
 
   socket.on('playerUpdate', function(updateData) {
@@ -70,6 +83,7 @@ MMO.controller('MapController', function($rootScope, $scope, $sce, $rooms, $play
     $scope.$digest();
 
     if(!playerObj) {
+      $rootScope.addLine('<i class="fa fa-arrow-circle-right"></i>' + updateData.username + ' entered the area.');
       $timeout(function() {
         $('.map-you[data-id="' + updateData.id + '"]').hide().fadeIn();
       });
@@ -87,6 +101,8 @@ MMO.controller('MapController', function($rootScope, $scope, $sce, $rooms, $play
 
       $scope.players.splice($scope.players.indexOf(playerObj), 1);
     }
+
+    $rootScope.addLine('<i class="fa fa-arrow-circle-left"></i>' + removeData.username + ' left the area.');
 
     if(render) {
       $('.map-you[data-id="' + removeData.id + '"]').fadeOut(function() {
@@ -202,7 +218,7 @@ MMO.controller('MapController', function($rootScope, $scope, $sce, $rooms, $play
 
   $(window).resize(function() {
     $scope.viewportX = Math.floor($(window).width() / 30);
-    $scope.viewportY = Math.floor($(window).height() / 65);
+    $scope.viewportY = Math.floor(($(window).height() - 180) / 65);
     $scope.$digest();
   });
 
@@ -211,22 +227,47 @@ MMO.controller('MapController', function($rootScope, $scope, $sce, $rooms, $play
   });
 
   $(document).on('keydown', function(evt) {
-    if($rootScope.inputIsFocused) {
+
+    // ENTER key when input is not focused?
+    if(evt.keyCode === 13 && !$scope.inputIsFocused) {
+      $('#input-controller input').focus();
       return;
     }
 
-    if(evt.keyCode === 8) {
-      evt.preventDefault();
+    // ESC key -- toggle modes
+    if(evt.keyCode === 27 && $player.canDraw()) {
+      if($scope.mode === $scope.modes.DEFAULT) {
+        // Change to EDITING mode
+        $scope.mode = $scope.modes.EDITING;
+        $('#input-controller input').fadeOut(function() {
+          $('#log-controller').addClass('in-edit-mode');
+        });
+        $('#edit-mode').fadeIn();
+
+        $rootScope.addLine('You can now edit the map. Press ESCAPE to exit this mode.');
+      } else {
+        // Change to DEFAULT mode
+        $scope.mode = $scope.modes.DEFAULT;
+        $('#input-controller input').fadeIn(function() {
+          $('#input-controller input').focus();
+        });
+        $('#log-controller').removeClass('in-edit-mode');
+        $('#edit-mode').fadeOut();
+
+        $rootScope.addLine('You are no longer editing the map.');
+      }
+      return;
     }
 
-    if(evt.keyCode === 16 && $player.canDraw()) {
+    // SHIFT key
+    if(evt.keyCode === 16 && $player.canDraw() && $scope.mode === $scope.modes.EDITING) {
       $scope.showSpecial = true;
       $scope.render();
       $scope.$digest();
     }
 
     // Movement delay?
-    if((Date.now() - $scope.lastMovement) < 50) {
+    if((Date.now() - $scope.lastMovement) < 100) {
       return;
     }
 
@@ -249,11 +290,12 @@ MMO.controller('MapController', function($rootScope, $scope, $sce, $rooms, $play
         y++;
         break;
       default:
-        if($rootScope.inputIsFocused) {
+        if($scope.mode === $scope.modes.EDITING) {
+          $scope.draw(evt, evt.shiftKey, evt.ctrlKey, evt.keyCode);
+          return;
+        } else {
           return;
         }
-        $scope.draw(evt.shiftKey, evt.ctrlKey, evt.keyCode);
-        return;
     }
 
     // Wall (hit wall unless going into object)?
@@ -302,13 +344,14 @@ MMO.controller('MapController', function($rootScope, $scope, $sce, $rooms, $play
     }
   });
 
-  $scope.draw = function(shiftKey, ctrlKey, keyCode) {
+  $scope.draw = function(event, shiftKey, ctrlKey, keyCode) {
     if(!$player.canDraw()) {
       return;
     }
 
     // Special key: backspace (delete a room)
     if(keyCode === 8) {
+      event.preventDefault(); // Prevent the browser from going back
       if(!$player.getEditingObject()) {
         if($rooms.check($player.x() - 1, $player.y())) {
           $rooms.x($player.x() - 1).y($player.y()).destroy();

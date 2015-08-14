@@ -2,6 +2,7 @@ var _ = require('underscore');
 
 function Map(name) {
   this.name = name || 'Unknown';
+  this.title = 'Untitled Area';
   this.rooms = [
     { x: 1, y: 0, symbol: '#' },
   ];
@@ -12,6 +13,7 @@ Map.prototype.load = function(cfg) {
   this.name = cfg.name;
   this.rooms = cfg.rooms;
   this.objects = cfg.objects;
+  this.title = cfg.title;
   return this;
 };
 
@@ -74,6 +76,10 @@ Map.prototype.color = function(colorData) {
   if(existingRoom) {
     existingRoom.color = colorData.color;
   }
+};
+
+Map.prototype.setMapTitle = function(newMapTitle) {
+  this.title = newMapTitle;
 };
 
 Map.prototype.setAnimation = function(animationData) {

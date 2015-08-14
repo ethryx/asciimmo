@@ -241,6 +241,32 @@ io.on('connection', function(socket) {
             socket.emit('text', 'The object could not be created.');
           }
           break;
+        case 'color':
+          playerObj.setBackgroundColor(args[0]);
+
+          Game.updateSurroundingPlayers(playerObj);
+
+          socket.emit('styleupdate', playerObj.getStyle());
+          socket.emit('text', 'Your background color has been changed.');
+          break;
+        case 'maptitle':
+          if(!playerObj.canEdit || args.length < 1){ return; }
+          var newMapTitle = args.join(' ');
+          Game.getMap(playerObj.location.map).setMapTitle(newMapTitle);
+          Game.doOnMapPlayers(playerObj, true, function(_player) {
+            _player.socket.emit('mapTitleChange', newMapTitle);
+          });
+          socket.emit('text', 'The map title has been changed.');
+          break;
+        case 'help':
+          var commands = ['color'];
+          if(playerObj.canEdit) {
+            ['animate', 'link', 'flag', 'objcreate', 'objedit', 'objpath', 'objstops', 'objhalt', 'maptitle'].forEach(function(c) {
+              commands.push(c);
+            });
+          }
+          socket.emit('text', 'Commands you can use: ' + commands.join(', ') + '.');
+          break;
       }
     });
   });

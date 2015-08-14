@@ -11,12 +11,14 @@
     <link rel="stylesheet" href="/assets/css/styles.css">
     <link rel="stylesheet" href="/assets/thirdparty/animate.css">
     <link href='http://fonts.googleapis.com/css?family=Inconsolata:400,700' rel='stylesheet' type='text/css'>
+    <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/font-awesome/4.4.0/css/font-awesome.min.css">
   </head>
 
   <body ng-controller="BodyController">
 
     <div id="map-controller" ng-controller="MapController">
       <pre ng-bind-html="viewport" class="viewport" ng-show="mapRenderAvailable"></pre>
+      <div id="map-title" ng-bind="mapTitle"></div>
     </div>
 
     <div id="log-controller" ng-controller="LogController">
@@ -29,6 +31,10 @@
 
     <div id="input-controller" ng-controller="InputController">
       <input type="text" placeholder="Type what you want to say.." ng-model="inputText" ng-focus="setInputFocus(true)" ng-blur="setInputFocus(false)" ng-keyup="onKeyUp($event)">
+    </div>
+
+    <div id="edit-mode">
+      EDIT MODE
     </div>
 
     <script src="/assets/game.js"></script>

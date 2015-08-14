@@ -61,6 +61,10 @@ Player.prototype.getStyle = function() {
   return _style;
 };
 
+Player.prototype.setBackgroundColor = function(bgColor) {
+  this.backgroundColor = '#' + bgColor;
+};
+
 Player.prototype.renderMap = function(map, shouldCreate) {
   if(map === null && shouldCreate) {
     map = this.game.createNewMap(this.location.map);
@@ -68,6 +72,7 @@ Player.prototype.renderMap = function(map, shouldCreate) {
 
   this.socket.emit('mapRender', {
     name: map.name,
+    title: map.title,
     rooms: map.rooms,
     objects: map.objects,
     locationX: this.location.x,
