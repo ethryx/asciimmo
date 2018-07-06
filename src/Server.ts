@@ -1,31 +1,33 @@
-// express
-var express = require('express');
-var app = express();
-// express logger (morgan)
-var logger = require('morgan');
 // LESS (express middleware)
-var lessMiddleware = require('less-middleware');
-// socket.io
-var server = require('http').Server(app);
-var io = require('socket.io')(server);
+import * as lessMiddleware from 'less-middleware';
 
-//app.use(logger());
-app.use('/assets', lessMiddleware(__dirname + '/assets'));
-app.use('/assets', express.static(__dirname + '/assets'));
-app.use(express.static(__dirname + '/html'));
+// New
+import * as express from 'express';
+import * as socketIo from 'socket.io';
+import { createServer, Server } from 'http';
 
-var server = server.listen(process.env.PORT || 3000, function() {
-  var host = server.address().address;
-  var port = server.address().port;
+// create app
+const app = express();
 
-  console.log('AsciiMMO server listening at http://%s:%s', host, port);
+// config
+app.use('/css', lessMiddleware(__dirname + '/../public/css'));
+app.use(express.static(__dirname + '/../public'));
+
+// create server (based on app)
+const server = createServer(app);
+const port = process.env.PORT || 3000;
+server.listen(port, function() {
+  console.log(`AsciiMMO server listening at http://127.0.0.1:${port}`);
 });
+
+// create io (based on server)
+const io = socketIo(server);
 
 // Require game classes
 var Game = require('./classes/game.js');
 
 // Init
-Game = new Game().init(true);
+Game = new Game().init();
 
 // Socket stuff
 io.on('connection', function(socket) {

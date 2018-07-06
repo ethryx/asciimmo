@@ -32,7 +32,7 @@ Game.prototype.init = function(newServer) {
 
 Game.prototype.save = function(doneCallback) {
   // Save maps
-  fs.writeFile('./data/maps', JSON.stringify(this.maps), function() {
+  fs.writeFile('./data/maps', JSON.stringify(this.maps), function(e) {
     console.log('Maps saved.');
 
     // Save logged in players
