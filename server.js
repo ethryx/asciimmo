@@ -10,9 +10,8 @@ var server = require('http').Server(app);
 var io = require('socket.io')(server);
 
 //app.use(logger());
-app.use('/assets', lessMiddleware(__dirname + '/assets'));
-app.use('/assets', express.static(__dirname + '/assets'));
-app.use(express.static(__dirname + '/html'));
+app.use('/css', lessMiddleware(__dirname + '/public/css'));
+app.use(express.static(__dirname + '/public'));
 
 var server = server.listen(process.env.PORT || 3000, function() {
   var host = server.address().address;
@@ -25,7 +24,7 @@ var server = server.listen(process.env.PORT || 3000, function() {
 var Game = require('./classes/game.js');
 
 // Init
-Game = new Game().init();
+Game = new Game().init(true);
 
 // Socket stuff
 io.on('connection', function(socket) {

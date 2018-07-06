@@ -899,9 +899,9 @@ MMO.factory('$sound', function() {
   return {
     preload: function() {
       console.log('Preloading sounds..');
-      createjs.Sound.registerSound("assets/sounds/chat_message.wav", "chatmsg");
-      createjs.Sound.registerSound("assets/sounds/step.wav", "step");
-      createjs.Sound.registerSound("assets/sounds/new_area.wav", "newarea");
+      createjs.Sound.registerSound("sounds/chat_message.wav", "chatmsg");
+      createjs.Sound.registerSound("sounds/step.wav", "step");
+      createjs.Sound.registerSound("sounds/new_area.wav", "newarea");
     },
 
     playSoundEffect: function(sfx) {
