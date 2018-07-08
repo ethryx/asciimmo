@@ -232,7 +232,7 @@ io.on('connection', function(socket) {
         case 'objcreate':
           if(!playerObj.canEdit || args.length !== 1){ return; }
           var objectCreationSuccessful = Game.getMap(playerObj.location.map).createObject(args[0], playerObj.location.x, playerObj.location.y);
-          if(objectCreationSuccessful !== false) {
+          if(objectCreationSuccessful !== null) {
             socket.emit('text', 'An object has been created: ' + objectCreationSuccessful.name);
             Game.doOnMapPlayers(playerObj, true, function(_player) {
               _player.socket.emit('objectCreate', objectCreationSuccessful);
