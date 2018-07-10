@@ -1,6 +1,9 @@
 import ILoginData from './interfaces/ILoginData'
 import WorldMap from './WorldMap';
-var fs = require('fs');
+import * as fs from 'fs';
+import * as socketIo from 'socket.io';
+import Server from '../Server';
+import * as ISocketEvents from './interfaces/ISocketEvents';
 
 //#region Player Interfaces
 interface ILocation {
@@ -19,51 +22,69 @@ interface IPlayerSaveConfig {
 //#endregion Player Interfaces
 
 class Player {
-  private socketId: any;
-  private socket: any;
-  private game: any;
+  private socket: socketIo.Socket;
   private username: string;
   private backgroundColor: string;
   private canEdit: boolean;
   private location: ILocation;
 
-  constructor(socket: any, game: any) {
-    this.socketId = socket.id;
-    this.socket = socket;
-    this.game = game;
+  constructor(username: string) {
+    this.username = username;
+    this.backgroundColor = '#f00';
+    this.location = {
+      type: 'map',
+      map: 'World',
+      x: 1,
+      y: 1
+    };
+    this.canEdit = false;
   }
 
-  public load(loginData: ILoginData, loadedCallback: Function): Player {
-    this.username = loginData.username;
+  public getSocketId(): string {
+    return this.socket.id
+  }
+
+  public getUsername(): string {
+    return this.username;
+  }
+
+  public getLocation(): ILocation {
+    return this.location;
+  }
+
+  public getCanEdit(): boolean {
+    return this.canEdit;
+  }
+
+  public getMap(): WorldMap {
+    return Server.worldManager.getMap(this.location.map);
+  }
+
+  public attachSocket(socket: socketIo.Socket): void {
+    this.socket = socket;
+  }
+
+  public emit(eventName: string, data: any): void {
+    this.socket.emit(eventName, data);
+  }
+
+  public loadFromConfig(config: IPlayerSaveConfig): void {
+    this.username = config.username;
+    this.location = config.location;
+    this.backgroundColor = config.backgroundColor;
+    this.canEdit = config.canEdit;
+  }
+
+  public saveToConfig(): IPlayerSaveConfig {
+    return {
+      username: this.username,
+      location: this.location,
+      backgroundColor: this.backgroundColor,
+      canEdit: this.canEdit
+    }
+  }
   
-    fs.readFile('./data/players/' + this.username, function(err, data) {
-      if(err) {
-        // New player
-        console.log('New player loaded username=' + this.username);
-        this.location = {
-          type: 'map',
-          map: 'World',
-          x: 1,
-          y: 1
-        };
-        this.backgroundColor = '#f00';
-        this.canEdit = false;
-      } else {
-        // Existing player
-        console.log('Existing player loaded username=' + this.username);
-        const dataObj: IPlayerSaveConfig = JSON.parse(data);
-        this.location = dataObj.location;
-        this.backgroundColor = dataObj.backgroundColor || '#999';
-        this.canEdit = dataObj.canEdit || false;
-      }
-  
-      loadedCallback(this);
-    }.bind(this));
-  
-    return this;
-  };
-  
-  public save(doneCallback: Function): void {
+  public save(doneCallback: any): void {
     const saveData: IPlayerSaveConfig = {
       username: this.username,
       location: this.location,
@@ -92,11 +113,9 @@ class Player {
     this.backgroundColor = '#' + bgColor;
   };
   
-  public renderMap(map: WorldMap, shouldCreate): void {
-    if(map === null && shouldCreate) {
-      map = this.game.createNewMap(this.location.map);
-    }
-  
+  public renderMap(): void {
+    const map = Server.worldManager.getMap(this.location.map);
+
     this.socket.emit('mapRender', {
       name: map.getName(),
       title: map.getTitle(),
@@ -106,6 +125,45 @@ class Player {
       locationY: this.location.y
     });
   };
+
+  public announceSelfToMap(): void {
+    const nearbyPlayers = this.getMap().getPlayersWithinRadius(this.location.x, this.location.y, 100);
+
+    nearbyPlayers.forEach(player => {
+      if(player !== this) {
+        const playerUpdateData: ISocketEvents.IPlayerUpdate = {
+          id: this.getSocketId(),
+          username: this.getUsername(),
+          map: this.getLocation().map,
+          x: this.getLocation().x,
+          y: this.getLocation().y,
+          style: this.getStyle()
+        };
+
+        player.emit('playerUpdate', playerUpdateData);
+      }
+    });
+  }
+
+  public renderNearbyPlayers(): void {
+    const nearbyPlayers = this.getMap().getPlayersWithinRadius(this.location.x, this.location.y, 100);
+
+    nearbyPlayers.forEach(player => {
+      if(player !== this) {
+        const playerUpdateData: ISocketEvents.IPlayerUpdate = {
+          id: player.getSocketId(),
+          username: player.getUsername(),
+          map: player.getLocation().map,
+          x: player.getLocation().x,
+          y: player.getLocation().y,
+          style: player.getStyle()
+        };
+
+        this.emit('playerUpdate', playerUpdateData);
+      }
+    });
+  }
 }
 
 export default Player;
+export { IPlayerSaveConfig };

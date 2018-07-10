@@ -1,4 +1,5 @@
-var _ = require('underscore');
+import Player from "./Player";
+import Server from "../Server";
 
 //#region WorldMap Interfaces
 interface IRoomGeneric {
@@ -63,16 +64,15 @@ interface IWorldMapSaveConfig {
 class WorldMap {
   private name: string;
   private title: string;
-  private rooms: Array<IRoom>;
-  private objects: Array<IRoomObject>;
+  private rooms: Map<IRoomGeneric, IRoom>;
+  private objects: Map<string, IRoomObject>;
 
   constructor(mapName?: string) {
     this.name = mapName || 'Unknown';
     this.title = 'Untitled Area';
-    this.rooms = [
-      { x: 1, y: 0, symbol: '#' },
-    ];
-    this.objects = [];
+    this.rooms = new Map();
+    this.rooms.set({ x: 1, y: 0 }, { x: 1, y: 0, symbol: '#' });
+    this.objects = new Map();
   }
 
   public getName(): string {
@@ -84,24 +84,43 @@ class WorldMap {
   }
 
   public getRooms(): Array<IRoom> {
-    return this.rooms;
+    const rooms: Array<IRoom> = [];
+    this.rooms.forEach(room => rooms.push(room));
+    return rooms;
   }
 
   public getObjects(): Array<IRoomObject> {
-    return this.objects;
+    const objects: Array<IRoomObject> = [];
+    this.objects.forEach(obj => objects.push(obj));
+    return objects;
   }
-  
-  public load(cfg: IWorldMapSaveConfig): void {
-    this.name = cfg.name;
-    this.rooms = cfg.rooms;
-    this.objects = cfg.objects;
-    this.title = cfg.title;
+
+  public loadFromConfig(config: IWorldMapSaveConfig): void {
+    this.name = config.name;
+    config.rooms.forEach(room => this.rooms.set({ x: room.x, y: room.y }, room));
+    config.objects.forEach(obj => this.objects.set(obj.name, obj));
+    this.title = config.title;
   };
+
+  public saveToConfig(): IWorldMapSaveConfig {
+    const rooms: Array<IRoom> = [];
+    const objects: Array<IRoomObject> = [];
+
+    this.rooms.forEach(room => rooms.push(room));
+    this.objects.forEach(object => objects.push(object));
+
+    return {
+      name: this.name,
+      rooms: rooms,
+      objects: objects,
+      title: this.title
+    }
+  }
 
   public draw(drawData: IRoomDrawData, objectName: string): void {
     if(objectName) {
-      var obj = _.findWhere(this.objects, { name: objectName });
-      var objRoom = _.findWhere(obj.rooms, { x: (drawData.x - obj.x), y: (drawData.y - obj.y) });
+      const obj = this.objects.get(objectName);
+      const objRoom = this.rooms.get({ x: (drawData.x - obj.x), y: (drawData.y - obj.y) });
       if(objRoom) {
         objRoom.symbol = drawData.symbol;
       } else {
@@ -114,46 +133,44 @@ class WorldMap {
       return;
     }
   
-    var existingRoom = _.findWhere(this.rooms, { x: drawData.x, y: drawData.y });
-  
+    const existingRoom = this.rooms.get({ x: drawData.x, y: drawData.y });
+
     if(existingRoom) {
       existingRoom.symbol = drawData.symbol;
     } else {
-      this.rooms.push(drawData);
+      this.rooms.set({ x: drawData.x, y: drawData.y }, drawData);
     }
   };
   
-  public undraw(undrawData: IRoomGeneric, forObject, funcOnObjectDelete): void {
+  public undraw(undrawData: IRoomGeneric, forObject: string, funcOnObjectDelete: Function): void {
     if(forObject) {
-      var obj = _.findWhere(this.objects, { name: forObject });
-      var objRoom = _.findWhere(obj.rooms, { x: (undrawData.x - obj.x), y: (undrawData.y - obj.y) });
+      const obj = this.objects.get(forObject);
+      const objRoom = this.rooms.get({ x: (undrawData.x - obj.x), y: (undrawData.y - obj.y) });
       if(objRoom) {
         obj.rooms.splice(obj.rooms.indexOf(objRoom), 1);
   
         if(obj.rooms.length === 0) {
-          this.objects.splice(this.objects.indexOf(obj), 1);
+          this.objects.delete(forObject);
           funcOnObjectDelete();
         }
       }
       return;
     }
   
-    var existingRoom = _.findWhere(this.rooms, { x: undrawData.x, y: undrawData.y });
-    if(existingRoom) {
-      var existingRoomIndex = this.rooms.indexOf(existingRoom);
-      this.rooms.splice(existingRoomIndex, 1);
+    if(this.rooms.get({ x: undrawData.x, y: undrawData.y })) {
+      this.rooms.delete({ x: undrawData.x, y: undrawData.y });
     }
   };
   
   public wall(wallData: IRoomWall): void {
-    var existingRoom = _.findWhere(this.rooms, { x: wallData.x, y: wallData.y });
+    const existingRoom = this.rooms.get({ x: wallData.x, y: wallData.y });
     if(existingRoom) {
       existingRoom.wall = wallData.wall;
     }
   };
   
   public color(colorData: IRoomColor): void {
-    var existingRoom = _.findWhere(this.rooms, { x: colorData.x, y: colorData.y });
+    const existingRoom = this.rooms.get({ x: colorData.x, y: colorData.y });
     if(existingRoom) {
       existingRoom.color = colorData.color;
     }
@@ -164,25 +181,25 @@ class WorldMap {
   };
   
   public setAnimation(animationData: IRoomAnimation): void {
-    var existingRoom = _.findWhere(this.rooms, { x: animationData.x, y: animationData.y });
+    const existingRoom = this.rooms.get({ x: animationData.x, y: animationData.y });
     if(existingRoom) {
       existingRoom.animation = animationData.animation;
     } else {
-      this.rooms.push(animationData);
+      this.rooms.set({ x: animationData.x, y: animationData.y }, animationData);
     }
   };
   
   public setLink(linkData: IRoomLink): void {
-    var existingRoom = _.findWhere(this.rooms, { x: linkData.x, y: linkData.y });
+    const existingRoom = this.rooms.get({ x: linkData.x, y: linkData.y });
     if(existingRoom) {
       existingRoom.link = linkData.link;
     } else {
-      this.rooms.push(linkData);
+      this.rooms.set({ x: linkData.x, y: linkData.y }, linkData);
     }
   };
   
   public toggleFlag(flagData: IRoomFlag): Array<string> {
-    var existingRoom = _.findWhere(this.rooms, { x: flagData.x, y: flagData.y });
+    const existingRoom = this.rooms.get({ x: flagData.x, y: flagData.y });
     if(existingRoom) {
       if(typeof existingRoom.flags === 'undefined') {
         existingRoom.flags = new Array(flagData.flag);
@@ -196,47 +213,49 @@ class WorldMap {
       }
       return existingRoom.flags;
     } else {
-      var newRoom = {
+      const newRoom: IRoom = {
         x: flagData.x,
         y: flagData.y,
         flags: new Array(flagData.flag)
       };
-      this.rooms.push(newRoom);
+      this.rooms.set({ x: newRoom.x, y: newRoom.y }, newRoom);
       return newRoom.flags;
     }
   };
   
   public getRoom(x: number, y: number): IRoom {
-    var existingRoom = _.findWhere(this.rooms, { x: x, y: y });
+    const existingRoom = this.rooms.get({ x: x, y: y });
     return existingRoom;
   };
   
   public createObject(objectName: string, x: number, y: number): IRoomObject {
-    var objExists = _.findWhere(this.objects, { name: objectName });
+    const objExists = this.objects.get(objectName);
     if(!objExists) {
-      if(!this.objects) {
-        this.objects = [];
-      }
-      var newObject = {
+      const newObject: IRoomObject = {
         x: x,
         y: y,
         name: objectName,
         rooms: [{ x: 0, y: 0, symbol: '#' }]
       };
-      this.objects.push(newObject);
+      this.objects.set(newObject.name, newObject);
       return newObject;
     } else {
       return null;
     }
   };
   
+  // TODO: Rename this?
   public getObjectAt(x: number, y: number): IRoomObject {
-    for(var o = 0; o < this.objects.length; o++) {
-      for(var r = 0; r < this.objects[o].rooms.length; r++) {
-        var _x = this.objects[o].x + this.objects[o].rooms[r].x;
-        var _y = this.objects[o].y + this.objects[o].rooms[r].y;
+    const objects: Array<IRoomObject> = [];
+
+    this.objects.forEach(obj => objects.push(obj));
+
+    for(var o = 0; o < objects.length; o++) {
+      for(var r = 0; r < objects[o].rooms.length; r++) {
+        var _x = objects[o].x + objects[o].rooms[r].x;
+        var _y = objects[o].y + objects[o].rooms[r].y;
         if(_x === x && _y === y) {
-          return this.objects[o];
+          return objects[o];
         }
       }
     }
@@ -244,6 +263,17 @@ class WorldMap {
     return null;
   };
 
+  public getPlayersWithinRadius(x: number, y: number, radius: number): Array<Player> {
+    return Server.playerManager.getPlayers().filter(player => {
+      return (
+        player.getLocation().type === 'map' &&
+        player.getLocation().map === this.getName() &&
+        Math.abs(x - player.getLocation().x) < radius &&
+        Math.abs(y - player.getLocation().y) < radius
+      );
+    });
+  }
 }
 
 export default WorldMap;
+export { IWorldMapSaveConfig };

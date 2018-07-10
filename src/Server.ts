@@ -1,19 +1,27 @@
 import SocketManager from './classes/managers/SocketManager';
 import WorldManager from './classes/managers/WorldManager';
+import PlayerManager from './classes/managers/PlayerManager';
+import SocketEventsManager from './classes/managers/SocketEventsManager';
 
 class Server {
-  private socketManager: SocketManager;
-  private worldManager: WorldManager;
+  public socketManager: SocketManager;
+  public socketEventsManager: SocketEventsManager;
+  public worldManager: WorldManager;
+  public playerManager: PlayerManager;
 
   constructor() {
     this.showBanner();
     this.socketManager = new SocketManager();
+    this.socketEventsManager = new SocketEventsManager();
     this.worldManager = new WorldManager();
+    this.playerManager = new PlayerManager();
   }
 
-  public startup(): void {
-    this.socketManager.startup();
-    this.worldManager.startup();
+  public async startup(): Promise<void> {
+    await this.socketManager.startup();
+    await this.socketEventsManager.startup();
+    await this.worldManager.startup();
+    await this.playerManager.startup();
   }
 
   public allowConnections(): void {
@@ -27,6 +35,9 @@ class Server {
 }
 
 const ServerSingleton = new Server();
-ServerSingleton.startup();
-ServerSingleton.allowConnections();
+
+ServerSingleton
+  .startup()
+  .then(() => ServerSingleton.allowConnections());
+
 export default ServerSingleton as Server;

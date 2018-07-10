@@ -1,16 +1,18 @@
 import * as lessMiddleware from 'less-middleware';
 import * as express from 'express';
 import * as socketIo from 'socket.io';
-import { createServer, Server } from 'http';
+import { createServer, Server as HTTPServer } from 'http';
 import IManager from '../interfaces/IManager';
 import Game from '../Game';
+import BaseManager from './BaseManager';
+import Server from '../../Server';
 
-class SocketManager implements IManager {
+class SocketManager extends BaseManager implements IManager {
   private app: express.Express = null;
-  private server: Server = null;
+  private server: HTTPServer = null;
   private sio: socketIo.Server = null;
 
-  public startup(): void {
+  public async startup(): Promise<void> {
     this.initApp();
     this.configureApp();
     this.initHttpServer();
@@ -48,8 +50,19 @@ class SocketManager implements IManager {
       console.log(`AsciiMMO server listening at http://127.0.0.1:3000`);
     });
   }
-
+  
   private bindSocketEvents(): void {
+    if (this.sio === null) {
+      throw new Error('Unable to allow connections due to server not being initialized first.');
+    }
+
+    this.sio.on('connection', (socket: socketIo.Socket) => {
+      console.log('Socket connection opened (id=%s)', socket.id);
+      socket.on('login', (loginData) => Server.socketEventsManager.onLogin(socket, loginData))
+    });
+  }
+
+  private bindSocketEvents_Old(): void {
     if (this.sio === null) {
       throw new Error('Unable to allow connections due to server not being initialized first.');
     }

@@ -8,33 +8,13 @@ function Game() {
   this.players = [];
 }
 
-Game.prototype.init = function(newServer) {
-  if(newServer) {
-    this.maps = [];
-    this.maps.push(new WorldMap('World'));
-    return this;
-  }
-
-  // Load maps
-  this.maps = [];
-  fs.readFile('./data/maps', function(err, data) {
-    if(!err && data) {
-      var _maps = JSON.parse(data);
-      _maps.forEach(function(_map) {
-        const map = new WorldMap();
-        map.load(_map);
-        this.maps.push(map);
-      }.bind(this));
-      console.log('Maps loaded.');
-    }
-  }.bind(this));
-
-  return this;
-};
-
 Game.prototype.save = function(doneCallback) {
+  const mapData = this.maps.map(map => {
+    return map.saveToConfig()
+  });
+
   // Save maps
-  fs.writeFile('./data/maps', JSON.stringify(this.maps), function(e) {
+  fs.writeFile('./data/maps', JSON.stringify(mapData), function(e) {
     console.log('Maps saved.');
 
     // Save logged in players
@@ -74,17 +54,6 @@ Game.prototype.eachMap = function(func) {
   this.maps.forEach(function(_map) {
     func(_map);
   });
-};
-
-Game.prototype.addPlayer = function(socket) {
-  if(!this.getPlayerBySocketId(socket.id)) {
-    var newPlayer = new Player(socket, this);
-    this.players.push(newPlayer);
-    console.log('Player connected [socket=%s players=%s]', socket.id, this.players.length);
-    return newPlayer;
-  } else {
-    return null;
-  }
 };
 
 Game.prototype.removePlayer = function(socketId) {

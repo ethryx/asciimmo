@@ -4,7 +4,7 @@
   "description": "",
   "main": "server.js",
   "scripts": {
-    "start": "ts-node src/Server.ts"
+    "start": "ts-node -O '{\"lib\": [\"ES6\"]}' src/Server.ts"
   },
   "author": "Mike DuRussel <heyitsmdr@gmail.com>",
   "license": "ISC",
