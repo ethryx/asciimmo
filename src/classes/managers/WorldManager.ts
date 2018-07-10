@@ -29,6 +29,16 @@ class WorldManager extends BaseManager implements IManager {
     });
   }
 
+  public async shutdown(): Promise<void> {
+    const mapData = Array.from(this.worldMaps.values()).map(wm => {
+      return wm.saveToConfig();
+    });
+
+    await this.writeDataFile('maps', mapData);
+
+    console.log('Maps saved');
+  }
+
   public getMap(mapName: string): WorldMap {
     return this.worldMaps.get(mapName);
   }

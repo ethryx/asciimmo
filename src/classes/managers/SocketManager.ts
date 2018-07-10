@@ -19,6 +19,10 @@ class SocketManager extends BaseManager implements IManager {
     this.initSockets();
   }
 
+  public async shutdown(): Promise<void> {
+    return;
+  }
+  
   public allowConnections(): void {
     this.startHttpListener();
     this.bindSocketEvents();
@@ -47,7 +51,7 @@ class SocketManager extends BaseManager implements IManager {
     }
 
     this.server.listen(3000, () => {
-      console.log(`AsciiMMO server listening at http://127.0.0.1:3000`);
+      console.log(`Arcadia is now available at http://127.0.0.1:3000`);
     });
   }
   
@@ -73,24 +77,6 @@ class SocketManager extends BaseManager implements IManager {
       console.log('Socket connection opened id=%s', socket.id);
     
       socket.on('login', function(loginData) {
-        if(GameEngine.getPlayerByUsername(loginData.username.toLowerCase())) {
-          socket.emit('text', 'That user is already logged in.');
-          return;
-        }
-    
-        GameEngine.addPlayer(socket).load(loginData, function(_player) {
-          socket.emit('loggedIn', {
-            id: socket.id,
-            username: _player.username,
-            style: _player.getStyle(),
-            canEdit: _player.canEdit
-          });
-    
-          _player.renderMap(GameEngine.getMap(_player.location.map), false);
-          GameEngine.updateSurroundingPlayers(_player);
-          GameEngine.getSurroundingPlayers(_player);
-        });
-    
         // Bind after-login events
         socket.on('location', function(locationData) {
           var playerObj = GameEngine.getPlayerBySocketId(socket.id);

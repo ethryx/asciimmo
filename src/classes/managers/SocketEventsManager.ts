@@ -14,12 +14,17 @@ class SocketEventsManager extends BaseManager implements IManager {
   constructor() {
     super();
     this.loggedInEvents = new Map();
-  }
-
-  public async startup(): Promise<void> {
     this.loggedInEvents.set('location', this.onLocation);
   }
 
+  public async startup(): Promise<void> {
+    return;
+  }
+
+  public async shutdown(): Promise<void> {
+    return;
+  }
+  
   public async onLogin(socket: socketIo.Socket, loginData: ILoginData): Promise<void> {
     if(Server.playerManager.getPlayerByUsername(loginData.username)) {
       socket.emit('text', 'That user is already logged in.');

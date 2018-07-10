@@ -4,7 +4,7 @@
   "description": "",
   "main": "server.js",
   "scripts": {
-    "start": "ts-node -O '{\"lib\": [\"ES6\"]}' src/Server.ts"
+    "start": "ts-node src/Server.ts"
   },
   "author": "Mike DuRussel <heyitsmdr@gmail.com>",
   "license": "ISC",
@@ -16,6 +16,7 @@
     "morgan": "^1.5.1",
     "socket.io": "^1.2.1",
     "ts-node": "^7.0.0",
+    "typescript": "^2.9.2",
     "underscore": "^1.7.0"
   },
   "repository": "git@github.com:heyitsmdr/asciimmo.git"

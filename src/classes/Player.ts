@@ -84,17 +84,6 @@ class Player {
     }
   }
   
-  public save(doneCallback: any): void {
-    const saveData: IPlayerSaveConfig = {
-      username: this.username,
-      location: this.location,
-      backgroundColor: this.backgroundColor,
-      canEdit: this.canEdit
-    };
-  
-    fs.writeFile('./data/players/' + this.username, JSON.stringify(saveData), doneCallback);
-  };
-  
   public getStyle(): string {
     var _style = '';
   

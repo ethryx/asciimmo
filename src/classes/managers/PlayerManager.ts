@@ -14,6 +14,16 @@ class PlayerManager extends BaseManager implements IManager {
     return;
   }
 
+  public async shutdown(): Promise<void> {
+    const connectedPlayersArray = Array.from(this.connectedPlayers.values());
+
+    for(let i = 0; i < connectedPlayersArray.length; i++) {
+      const player = connectedPlayersArray[i];
+      await this.writeDataFile(`players/${player.getUsername()}`, player.saveToConfig());
+      console.log(`Saved connected player: ${player.getUsername()}`);
+    }
+  }
+  
   public getPlayers(): Array<Player> {
     return Array.from(this.connectedPlayers.values());
   }

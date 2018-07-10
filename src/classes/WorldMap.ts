@@ -103,16 +103,10 @@ class WorldMap {
   };
 
   public saveToConfig(): IWorldMapSaveConfig {
-    const rooms: Array<IRoom> = [];
-    const objects: Array<IRoomObject> = [];
-
-    this.rooms.forEach(room => rooms.push(room));
-    this.objects.forEach(object => objects.push(object));
-
     return {
       name: this.name,
-      rooms: rooms,
-      objects: objects,
+      rooms: Array.from(this.rooms.values()),
+      objects: Array.from(this.objects.values()),
       title: this.title
     }
   }
