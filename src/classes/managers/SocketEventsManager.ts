@@ -28,8 +28,7 @@ class SocketEventsManager extends BaseManager implements IManager {
       return;
     }
 
-    const addedPlayer = await Server.playerManager.addPlayer(loginData.username);
-    addedPlayer.attachSocket(socket);
+    const addedPlayer = await Server.playerManager.addPlayer(loginData.username, socket);
 
     // Bind post-login events to socket
     const bindableEventNames: Array<string> = Array.from(this.loggedInEvents.keys());

@@ -1,5 +1,5 @@
 import WorldMap from './WorldMap';
-import * as socketIo from 'socket.io';
+import { Socket } from 'socket.io';
 import Server from '../Server';
 import * as ISocketEvents from './interfaces/ISocketEvents';
 
@@ -20,13 +20,14 @@ interface IPlayerSaveConfig {
 //#endregion Player Interfaces
 
 class Player {
-  private socket: socketIo.Socket;
+  private socket: Socket;
   private username: string;
   private backgroundColor: string;
   private canEdit: boolean;
   private location: ILocation;
 
-  constructor(username: string) {
+  constructor(username: string, socket: Socket) {
+    this.socket = socket;
     this.username = username;
     this.backgroundColor = '#f00';
     this.location = {
@@ -56,11 +57,6 @@ class Player {
 
   public getMap(): WorldMap {
     return Server.worldManager.getMap(this.location.map);
-  }
-
-  public attachSocket(socket: socketIo.Socket): void {
-    this.socket = socket;
-    Server.playerManager.mapSocketIdToPlayer(socket.id, this);
   }
 
   public emit(eventName: string, data: any): void {

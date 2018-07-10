@@ -1,6 +1,7 @@
 import IManager from '../interfaces/IManager';
 import BaseManager from './BaseManager';
 import Player, { IPlayerSaveConfig } from '../Player';
+import { Socket } from 'socket.io';
 
 class PlayerManager extends BaseManager implements IManager {
   private connectedPlayers: Map<string, Player>;
@@ -38,8 +39,8 @@ class PlayerManager extends BaseManager implements IManager {
     return this.connectedPlayersBySocketId.get(socketId);
   }
 
-  public async addPlayer(username: string): Promise<Player> {
-    let player: Player = new Player(username);
+  public async addPlayer(username: string, socket: Socket): Promise<Player> {
+    let player: Player = new Player(username, socket);
 
     if(await this.dataFileExists(`players/${username.toLowerCase()}`) === false) {
       console.log(`Created new player: ${username}`);
@@ -50,12 +51,9 @@ class PlayerManager extends BaseManager implements IManager {
     }
 
     this.connectedPlayers.set(username.toLowerCase(), player);
+    this.connectedPlayersBySocketId.set(socket.id, player);
 
     return player;
-  }
-
-  public mapSocketIdToPlayer(socketId: string, player: Player): void {
-    this.connectedPlayersBySocketId.set(socketId, player);
   }
 }
 
