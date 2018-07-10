@@ -4,10 +4,12 @@ import Player, { IPlayerSaveConfig } from '../Player';
 
 class PlayerManager extends BaseManager implements IManager {
   private connectedPlayers: Map<string, Player>;
+  private connectedPlayersBySocketId: Map<string, Player>;
 
   constructor() {
     super();
     this.connectedPlayers = new Map();
+    this.connectedPlayersBySocketId = new Map();
   }
 
   public async startup(): Promise<void> {
@@ -29,11 +31,11 @@ class PlayerManager extends BaseManager implements IManager {
   }
 
   public getPlayerByUsername(username: string): Player {
-    if(this.connectedPlayers.get(username.toLowerCase())) {
-      return this.connectedPlayers.get(username.toLowerCase());
-    } else {
-      return null;
-    }
+    return this.connectedPlayers.get(username.toLowerCase());
+  }
+
+  public getPlayerBySocketId(socketId: string): Player {
+    return this.connectedPlayersBySocketId.get(socketId);
   }
 
   public async addPlayer(username: string): Promise<Player> {
@@ -50,6 +52,10 @@ class PlayerManager extends BaseManager implements IManager {
     this.connectedPlayers.set(username.toLowerCase(), player);
 
     return player;
+  }
+
+  public mapSocketIdToPlayer(socketId: string, player: Player): void {
+    this.connectedPlayersBySocketId.set(socketId, player);
   }
 }
 

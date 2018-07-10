@@ -1,6 +1,4 @@
-import ILoginData from './interfaces/ILoginData'
 import WorldMap from './WorldMap';
-import * as fs from 'fs';
 import * as socketIo from 'socket.io';
 import Server from '../Server';
 import * as ISocketEvents from './interfaces/ISocketEvents';
@@ -62,6 +60,7 @@ class Player {
 
   public attachSocket(socket: socketIo.Socket): void {
     this.socket = socket;
+    Server.playerManager.mapSocketIdToPlayer(socket.id, this);
   }
 
   public emit(eventName: string, data: any): void {

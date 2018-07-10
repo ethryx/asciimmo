@@ -1,3 +1,7 @@
+export interface ILogin {
+  username: string
+}
+
 export interface ILoggedIn {
   id: string,
   username: string,
@@ -12,4 +16,10 @@ export interface IPlayerUpdate {
   x: number,
   y: number,
   style: string
+}
+
+export interface ILocation {
+  x: number,
+  y: number,
+  shiftKey: boolean
 }

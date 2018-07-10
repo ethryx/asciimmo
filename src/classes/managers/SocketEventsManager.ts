@@ -4,9 +4,6 @@ import * as socketIo from 'socket.io';
 import Server from '../../Server';
 import * as ISocketEvents from '../interfaces/ISocketEvents';
 
-interface ILoginData {
-  username: string
-}
 
 class SocketEventsManager extends BaseManager implements IManager {
   private loggedInEvents: Map<string, any>;
@@ -25,7 +22,7 @@ class SocketEventsManager extends BaseManager implements IManager {
     return;
   }
   
-  public async onLogin(socket: socketIo.Socket, loginData: ILoginData): Promise<void> {
+  public async onLogin(socket: socketIo.Socket, loginData: ISocketEvents.ILogin): Promise<void> {
     if(Server.playerManager.getPlayerByUsername(loginData.username)) {
       socket.emit('text', 'That user is already logged in.');
       return;
@@ -56,8 +53,8 @@ class SocketEventsManager extends BaseManager implements IManager {
     addedPlayer.announceSelfToMap();
   }
 
-  private async onLocation(socket: socketIo.Socket, locationData): Promise<void> {
-
+  private async onLocation(socket: socketIo.Socket, locationData: ISocketEvents.ILocation): Promise<void> {
+    
   }
 }
 
